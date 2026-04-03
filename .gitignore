@@ -1,0 +1,9 @@
+*.py[co]
+.idea/
+.vscode/
+.DS_Store
+build/
+dist/
+.coverage*
+*.junit.xml
+htmlcov/

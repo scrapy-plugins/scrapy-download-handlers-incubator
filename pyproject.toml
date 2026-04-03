@@ -1,0 +1,164 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "scrapy-download-handlers-incubator"
+version = "0.1.0"
+description = "Incubator for Scrapy download handlers"
+authors = [{ name = "Scrapy developers", email = "opensource@zyte.com" }]
+maintainers = [{ name = "Scrapy developers", email = "opensource@zyte.com" }]
+license = "BSD-3-Clause"
+readme = "README.rst"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Scrapy",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "Scrapy>=2.14,<2.16",
+]
+
+[project.urls]
+Source = "https://github.com/scrapy/scrapy-download-handlers-incubator"
+Tracker = "https://github.com/scrapy/scrapy-download-handlers-incubator/issues"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/tox.toml",
+]
+
+[tool.coverage.run]
+branch = true
+
+[tool.mypy]
+strict = true
+
+[tool.pytest]
+addopts = ["--import-mode=importlib"]
+strict = true
+
+[tool.ruff.lint]
+extend-select = [
+    # flake8-builtins
+    "A",
+    # flake8-async
+    "ASYNC",
+    # flake8-bugbear
+    "B",
+    # flake8-comprehensions
+    "C4",
+    # flake8-commas
+    "COM",
+    # pydocstyle
+    "D",
+    # flake8-future-annotations
+    "FA",
+    # flynt
+    "FLY",
+    # refurb
+    "FURB",
+    # isort
+    "I",
+    # flake8-implicit-str-concat
+    "ISC",
+    # flake8-logging
+    "LOG",
+    # Perflint
+    "PERF",
+    # pygrep-hooks
+    "PGH",
+    # flake8-pie
+    "PIE",
+    # pylint
+    "PL",
+    # flake8-pytest-style
+    "PT",
+    # flake8-use-pathlib
+    "PTH",
+    # flake8-pyi
+    "PYI",
+    # flake8-quotes
+    "Q",
+    # flake8-return
+    "RET",
+    # flake8-raise
+    "RSE",
+    # Ruff-specific rules
+    "RUF",
+    # flake8-bandit
+    "S",
+    # flake8-simplify
+    "SIM",
+    # flake8-slots
+    "SLOT",
+    # flake8-debugger
+    "T10",
+    # flake8-type-checking
+    "TC",
+    # flake8-tidy-imports
+    "TID",
+    # pyupgrade
+    "UP",
+    # pycodestyle warnings
+    "W",
+    # flake8-2020
+    "YTT",
+]
+ignore = [
+    # Trailing comma missing
+    "COM812",
+    # Missing docstring in public module
+    "D100",
+    # Missing docstring in public class
+    "D101",
+    # Missing docstring in public method
+    "D102",
+    # Missing docstring in public function
+    "D103",
+    # Missing docstring in public package
+    "D104",
+    # Missing docstring in magic method
+    "D105",
+    # Missing docstring in public nested class
+    "D106",
+    # Missing docstring in __init__
+    "D107",
+    # One-line docstring should fit on one line with quotes
+    "D200",
+    # No blank lines allowed after function docstring
+    "D202",
+    # 1 blank line required between summary line and description
+    "D205",
+    # Multi-line docstring closing quotes should be on a separate line
+    "D209",
+    # First line should end with a period
+    "D400",
+    # First line should be in imperative mood; try rephrasing
+    "D401",
+    # First line should not be the function's "signature"
+    "D402",
+    # First word of the first line should be properly capitalized
+    "D403",
+    # `try`-`except` within a loop incurs performance overhead
+]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
