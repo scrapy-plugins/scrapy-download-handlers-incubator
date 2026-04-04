@@ -1,5 +1,6 @@
-from .handlers import HttpxDownloadHandler
+from .handlers import AiohttpDownloadHandler, HttpxDownloadHandler
 
 __all__ = [
+    "AiohttpDownloadHandler",
     "HttpxDownloadHandler",
 ]

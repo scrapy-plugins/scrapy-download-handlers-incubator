@@ -1,6 +1,6 @@
 requires = ["tox>=4.25"]
 env_list = [
-    { product = [["py"], ["httpx", "all", "pinned"], ["", "noreactor"]] },
+    { product = [["py"], ["aiohttp", "httpx", "all", "pinned"], ["", "noreactor"]] },
     "pre-commit",
     "typing",
     "twinecheck",
@@ -17,10 +17,12 @@ deps = [
     { replace = "if", condition = "not factor.noreactor", then = ["pytest-twisted"], extend = true },
     { replace = "if", condition = "factor.noreactor", then = ["pytest-asyncio"], extend = true },
     { replace = "if", condition = "factor.pinned", then = [
+        "aiohttp==3.11.0",
         "httpx==0.28.1",
     ], extend = true },
 ]
 extras = [
+    { replace = "if", condition = "factor.all or factor.aiohttp", then = ["aiohttp"], extend = true },
     { replace = "if", condition = "factor.all or factor.httpx", then = ["httpx"], extend = true },
 ]
 commands = [
@@ -52,6 +54,7 @@ commands = [
 [env.typing]
 deps = [
     "mypy==1.20.0",
+    "aiohttp==3.13.5",
     "httpx==0.28.1",
     "pytest==9.0.2",
     # "Scrapy==2.14.2",

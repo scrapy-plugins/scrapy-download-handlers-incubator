@@ -19,6 +19,28 @@ supported.
 Handlers
 ========
 
+AiohttpDownloadHandler
+----------------------
+
+This handler supports HTTP/1.1 and uses the aiohttp_ library.
+
+Install it with:
+
+.. code:: bash
+
+    pip install scrapy-download-handlers-incubator[aiohttp]
+
+Enable it with:
+
+.. code-block:: python
+
+    DOWNLOAD_HANDLERS = {
+        "http": "scrapy_download_handlers_incubator.AiohttpDownloadHandler",
+        "https": "scrapy_download_handlers_incubator.AiohttpDownloadHandler",
+    }
+
+.. _aiohttp: https://docs.aiohttp.org/en/stable/
+
 HttpxDownloadHandler
 --------------------
 

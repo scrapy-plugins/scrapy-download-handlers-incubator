@@ -33,6 +33,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+aiohttp = [
+    "aiohttp>=3.11.0",
+]
 httpx = [
     "httpx>=0.28.1",
 ]
