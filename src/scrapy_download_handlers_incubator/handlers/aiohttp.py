@@ -125,7 +125,9 @@ class AiohttpDownloadHandler(BaseHttpDownloadHandler):
             raise UnsupportedURLSchemeError(str(e)) from e
         except aiohttp.ClientConnectorError as e:
             if (
-                isinstance(e.os_error, OSError)
+                # os_error is absent on ClientConnectorCertificateError before aiohttp 3.13.4
+                hasattr(e, "os_error")
+                and isinstance(e.os_error, OSError)
                 and e.os_error.strerror
                 and (
                     "Name or service not known" in e.os_error.strerror
