@@ -39,6 +39,9 @@ aiohttp = [
 httpx = [
     "httpx>=0.28.1",
 ]
+niquests = [
+    "niquests>=3.14.0",
+]
 
 [project.urls]
 Source = "https://github.com/scrapy/scrapy-download-handlers-incubator"
