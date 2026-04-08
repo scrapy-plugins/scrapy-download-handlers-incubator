@@ -37,6 +37,9 @@ jobs:
               TOXENV: py-all-noreactor
           - python-version: '3.13'
             env:
+              TOXENV: py-aiohttp
+          - python-version: '3.13'
+            env:
               TOXENV: py-httpx
 
     steps:
