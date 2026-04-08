@@ -29,7 +29,6 @@ from scrapy.utils._download_handlers import (
     normalize_bind_address,
 )
 from scrapy.utils.asyncio import is_asyncio_available
-from urllib3 import ConnectionInfo
 
 from scrapy_download_handlers_incubator.utils import NullCookieJar
 
@@ -43,6 +42,7 @@ try:
     import niquests
     import niquests.exceptions
     import urllib3.exceptions
+    from urllib3 import ConnectionInfo
 except ImportError:
     niquests = None  # type: ignore[assignment]
 
