@@ -135,7 +135,7 @@ class PyreqwestDownloadHandler(BaseHttpDownloadHandler):
         except pyreqwest.exceptions.ConnectError as e:
             if _find_in_causes(e, "dns error"):
                 raise CannotResolveHostError(str(e)) from e
-            if _find_in_causes(e, "Connection refused"):
+            if _find_in_causes(e, "tcp connect error"):
                 raise DownloadConnectionRefusedError(str(e)) from e
             raise DownloadFailedError(str(e)) from e
 
