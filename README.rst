@@ -10,8 +10,7 @@ given. The documentation, including limitations and unsupported features, is
 also provided as-is and may be incomplete.
 
 As this code may intentionally use private Scrapy APIs, it specifies a tight
-dependency on Scrapy. Currently only the unreleased 2.15.0 version is
-supported.
+dependency on Scrapy. Currently only the 2.15.x versions are supported.
 
 .. _Scrapy: https://scrapy.org/
 .. _Scrapy download handler: https://docs.scrapy.org/en/latest/topics/download-handlers.html
