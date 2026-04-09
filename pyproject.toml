@@ -38,6 +38,9 @@ aiohttp = [
 httpx = [
     "httpx>=0.28.1",
 ]
+niquests = [
+    "niquests>=3.14.0",
+]
 pyreqwest = [
     "pyreqwest>=0.11.0;python_version >= '3.11'",
 ]

@@ -1,12 +1,12 @@
-"""``httpx``-based HTTP(S) download handler. Currently not recommended for production use."""
+"""``niquests``-based HTTP(S) download handler. Currently not recommended for production use."""
 
 from __future__ import annotations
 
 import ipaddress
 import logging
-import ssl
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, NoReturn, TypedDict
+from urllib.parse import urlparse
 
 from scrapy import Request, signals
 from scrapy.exceptions import (
@@ -30,22 +30,22 @@ from scrapy.utils._download_handlers import (
     normalize_bind_address,
 )
 from scrapy.utils.asyncio import is_asyncio_available
-from scrapy.utils.ssl import _log_sslobj_debug_info, _make_ssl_context
 
 from scrapy_download_handlers_incubator.utils import NullCookieJar
 
 if TYPE_CHECKING:
-    from contextlib import AbstractAsyncContextManager
     from ipaddress import IPv4Address, IPv6Address
 
-    from httpcore import AsyncNetworkStream
     from scrapy.crawler import Crawler
 
 
 try:
-    import httpx
+    import niquests
+    import niquests.exceptions
+    import urllib3
+    import urllib3.exceptions
 except ImportError:
-    httpx = None  # type: ignore[assignment]
+    niquests = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -54,15 +54,14 @@ class _BaseResponseArgs(TypedDict):
     status: int
     url: str
     headers: Headers
-    ip_address: IPv4Address | IPv6Address
-    protocol: str
+    ip_address: IPv4Address | IPv6Address | None
+    protocol: str | None
 
 
-class HttpxDownloadHandler(BaseHttpDownloadHandler):
+class NiquestsDownloadHandler(BaseHttpDownloadHandler):
     _DEFAULT_CONNECT_TIMEOUT = 10
 
     def __init__(self, crawler: Crawler):
-        # we skip HttpxDownloadHandler tests with the non-asyncio reactor
         if not is_asyncio_available():  # pragma: no cover
             raise NotConfigured(
                 f"{type(self).__name__} requires the asyncio support. Make"
@@ -71,13 +70,14 @@ class HttpxDownloadHandler(BaseHttpDownloadHandler):
                 f" TWISTED_REACTOR_ENABLED setting. See the asyncio"
                 f" documentation of Scrapy for more information."
             )
-        if httpx is None:  # pragma: no cover
+        if niquests is None:  # pragma: no cover
             raise NotConfigured(
-                f"{type(self).__name__} requires the httpx library to be installed."
+                f"{type(self).__name__} requires the niquests library to be installed."
             )
         super().__init__(crawler)
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         logger.warning(
-            "HttpxDownloadHandler is experimental and is not recommented for production use."
+            "NiquestsDownloadHandler is experimental and is not recommented for production use."
         )
         bind_address = crawler.settings.get("DOWNLOAD_BIND_ADDRESS")
         bind_address = normalize_bind_address(bind_address)
@@ -97,13 +97,16 @@ class HttpxDownloadHandler(BaseHttpDownloadHandler):
                 )
             self._bind_address = host
 
-        self._client = httpx.AsyncClient(
-            cookies=NullCookieJar(),
-            transport=httpx.AsyncHTTPTransport(
-                verify=_make_ssl_context(crawler.settings),
-                local_address=self._bind_address,
-            ),
+        self._verify_certificates: bool = crawler.settings.getbool(
+            "DOWNLOAD_VERIFY_CERTIFICATES"
         )
+
+        self._session = niquests.AsyncSession(
+            source_address=bind_address,
+            disable_http2=True,
+            disable_http3=True,
+        )
+        self._session.cookies = NullCookieJar()
 
     async def download_request(self, request: Request) -> Response:
         self._warn_unsupported_meta(request.meta)
@@ -112,64 +115,68 @@ class HttpxDownloadHandler(BaseHttpDownloadHandler):
             "download_timeout", self._DEFAULT_CONNECT_TIMEOUT
         )
 
+        nq_response: niquests.AsyncResponse | None = None
         try:
-            async with self._get_httpx_response(request, timeout) as httpx_response:
-                return await self._read_response(httpx_response, request)
-        except httpx.TimeoutException as e:
+            nq_response = await self._get_nq_response(request, timeout)
+            return await self._read_response(nq_response, request)
+        except niquests.exceptions.ReadTimeout as e:
             raise DownloadTimeoutError(
                 f"Getting {request.url} took longer than {timeout} seconds."
             ) from e
-        except httpx.UnsupportedProtocol as e:
+        except niquests.exceptions.InvalidSchema as e:
             raise UnsupportedURLSchemeError(str(e)) from e
-        except httpx.ConnectError as e:
-            error_message = str(e)
-            if (
-                "Name or service not known" in error_message
-                or "getaddrinfo failed" in error_message
-                or "nodename nor servname" in error_message
-                or "Temporary failure in name resolution" in error_message
-            ):
-                raise CannotResolveHostError(error_message) from e
-            raise DownloadConnectionRefusedError(str(e)) from e
-        except httpx.NetworkError as e:
+        except niquests.exceptions.ConnectionError as e:
+            match e.__context__:
+                case urllib3.exceptions.MaxRetryError():
+                    match e.__context__.__context__:
+                        case urllib3.exceptions.NameResolutionError():
+                            raise CannotResolveHostError(str(e)) from e
+                        case urllib3.exceptions.NewConnectionError():
+                            raise DownloadConnectionRefusedError(str(e)) from e
+                case urllib3.exceptions.ReadTimeoutError():
+                    raise DownloadTimeoutError(str(e)) from e
             raise DownloadFailedError(str(e)) from e
-        except httpx.RemoteProtocolError as e:
-            raise DownloadFailedError(str(e)) from e
+        finally:
+            if nq_response:
+                await nq_response.close()
 
     def _warn_unsupported_meta(self, meta: dict[str, Any]) -> None:
         if meta.get("bindaddress"):
-            # configurable only per-client:
-            # https://github.com/encode/httpx/issues/755#issuecomment-2746121794
             logger.error(
                 f"The 'bindaddress' request meta key is not supported by"
                 f" {type(self).__name__} and will be ignored."
             )
         if meta.get("proxy"):
-            # configurable only per-client:
-            # https://github.com/encode/httpx/issues/486
             logger.error(
                 f"The 'proxy' request meta key is not supported by"
                 f" {type(self).__name__} and will be ignored."
             )
 
-    def _get_httpx_response(
+    async def _get_nq_response(
         self, request: Request, timeout: float
-    ) -> AbstractAsyncContextManager[httpx.Response]:
-        return self._client.stream(
-            request.method,
-            request.url,
-            content=request.body,
-            headers=request.headers.to_tuple_list(),
+    ) -> niquests.AsyncResponse:
+        headers = request.headers.to_unicode_dict()
+        for k in list(headers):
+            if headers[k] == "":
+                del headers[k]
+        return await self._session.request(
+            method=request.method,
+            url=request.url,
+            data=request.body,
+            headers=headers,
             timeout=timeout,
+            allow_redirects=False,
+            stream=True,
+            verify=self._verify_certificates,
         )
 
     async def _read_response(
-        self, httpx_response: httpx.Response, request: Request
+        self, nq_response: niquests.AsyncResponse, request: Request
     ) -> Response:
         maxsize: int = request.meta.get("download_maxsize", self._default_maxsize)
         warnsize: int = request.meta.get("download_warnsize", self._default_warnsize)
 
-        content_length = httpx_response.headers.get("Content-Length")
+        content_length = nq_response.headers.get("Content-Length")
         expected_size = int(content_length) if content_length is not None else None
         if maxsize and expected_size and expected_size > maxsize:
             self._cancel_maxsize(expected_size, maxsize, request, expected=True)
@@ -181,18 +188,20 @@ class HttpxDownloadHandler(BaseHttpDownloadHandler):
                 get_warnsize_msg(expected_size, warnsize, request, expected=True)
             )
 
-        headers = Headers(httpx_response.headers.multi_items())
-        network_stream: AsyncNetworkStream = httpx_response.extensions["network_stream"]
+        headers = Headers(nq_response.headers.items())  # type: ignore[no-untyped-call]
 
+        assert nq_response.conn_info is not None
         make_response_base_args: _BaseResponseArgs = {
-            "status": httpx_response.status_code,
+            "status": nq_response.status_code or 0,
             "url": request.url,
             "headers": headers,
-            "ip_address": self._get_server_ip(network_stream),
-            "protocol": httpx_response.http_version,
+            "ip_address": self._get_server_ip(nq_response.conn_info),
+            "protocol": nq_response.conn_info.http_version.value
+            if nq_response.conn_info.http_version
+            else None,
         }
 
-        self._log_tls_info(network_stream)
+        self._log_tls_info(nq_response.conn_info, request.url)
 
         if stop_download := check_stop_download(
             signals.headers_received,
@@ -209,7 +218,7 @@ class HttpxDownloadHandler(BaseHttpDownloadHandler):
         response_body = BytesIO()
         bytes_received = 0
         try:
-            async for chunk in httpx_response.aiter_raw():
+            async for chunk in await nq_response.iter_raw():
                 response_body.write(chunk)
                 bytes_received += len(chunk)
 
@@ -235,13 +244,7 @@ class HttpxDownloadHandler(BaseHttpDownloadHandler):
                             bytes_received, warnsize, request, expected=False
                         )
                     )
-        except httpx.RemoteProtocolError as e:
-            # special handling of the dataloss case
-            if (
-                "peer closed connection without sending complete message body"
-                not in str(e)
-            ):
-                raise
+        except niquests.exceptions.ChunkedEncodingError as e:
             fail_on_dataloss: bool = request.meta.get(
                 "download_fail_on_dataloss", self._fail_on_dataloss
             )
@@ -260,16 +263,22 @@ class HttpxDownloadHandler(BaseHttpDownloadHandler):
         )
 
     @staticmethod
-    def _get_server_ip(network_stream: AsyncNetworkStream) -> IPv4Address | IPv6Address:
-        extra_server_addr = network_stream.get_extra_info("server_addr")
-        return ipaddress.ip_address(extra_server_addr[0])
+    def _get_server_ip(
+        conn_info: urllib3.ConnectionInfo,
+    ) -> IPv4Address | IPv6Address | None:
+        if conn_info.destination_address:
+            return ipaddress.ip_address(conn_info.destination_address[0])
+        return None
 
-    def _log_tls_info(self, network_stream: AsyncNetworkStream) -> None:
+    def _log_tls_info(self, conn_info: urllib3.ConnectionInfo, url: str) -> None:
         if not self._tls_verbose_logging:
             return
-        extra_ssl_object = network_stream.get_extra_info("ssl_object")
-        if isinstance(extra_ssl_object, ssl.SSLObject):
-            _log_sslobj_debug_info(extra_ssl_object)
+        if conn_info.tls_version:
+            logger.debug(
+                f"SSL connection to {urlparse(url).hostname}"
+                f" using protocol {conn_info.tls_version.name},"
+                f" cipher {conn_info.cipher}"
+            )
 
     def _log_dataloss_warning(self, url: str) -> None:
         if self._fail_on_dataloss_warned:
@@ -286,4 +295,4 @@ class HttpxDownloadHandler(BaseHttpDownloadHandler):
         raise DownloadCancelledError(warning_msg)
 
     async def close(self) -> None:
-        await self._client.aclose()
+        await self._session.close()

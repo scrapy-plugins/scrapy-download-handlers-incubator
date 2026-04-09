@@ -10,7 +10,8 @@ given. The documentation, including limitations and unsupported features, is
 also provided as-is and may be incomplete.
 
 As this code may intentionally use private Scrapy APIs, it specifies a tight
-dependency on Scrapy. Currently only the 2.15.x versions are supported.
+dependency on Scrapy. Currently only the unreleased 2.15.0 version is
+supported.
 
 .. _Scrapy: https://scrapy.org/
 .. _Scrapy download handler: https://docs.scrapy.org/en/latest/topics/download-handlers.html
@@ -63,6 +64,28 @@ Enable it with:
     }
 
 .. _httpx: https://www.python-httpx.org/
+
+NiquestsDownloadHandler
+-----------------------
+
+This handler supports HTTP/1.1 and uses the niquests_ library.
+
+Install it with:
+
+.. code:: bash
+
+    pip install scrapy-download-handlers-incubator[niquests]
+
+Enable it with:
+
+.. code-block:: python
+
+    DOWNLOAD_HANDLERS = {
+        "http": "scrapy_download_handlers_incubator.NiquestsDownloadHandler",
+        "https": "scrapy_download_handlers_incubator.NiquestsDownloadHandler",
+    }
+
+.. _niquests: https://niquests.readthedocs.io/en/latest/
 
 PyreqwestDownloadHandler
 ------------------------

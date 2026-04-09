@@ -40,6 +40,9 @@ jobs:
               TOXENV: py-aiohttp
           - python-version: '3.13'
             env:
+              TOXENV: py-niquests
+          - python-version: '3.13'
+            env:
               TOXENV: py-httpx
           - python-version: '3.13'
             env:
