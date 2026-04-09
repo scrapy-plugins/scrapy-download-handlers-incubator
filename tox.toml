@@ -57,7 +57,7 @@ deps = [
     "aiohttp==3.13.5",
     "httpx==0.28.1",
     "pytest==9.0.2",
-    # "Scrapy==2.14.2",
+     "Scrapy==2.15.0",
 ]
 commands = [
     ["mypy", { replace = "posargs", default = ["src", "tests"], extend = true }],
