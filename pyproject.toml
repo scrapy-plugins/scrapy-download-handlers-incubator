@@ -28,8 +28,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-#    "Scrapy>=2.14,<2.16",
-    "Scrapy @ git+https://github.com/scrapy/scrapy@58d8528",
+    "Scrapy>=2.15,<2.16",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +40,9 @@ httpx = [
 ]
 niquests = [
     "niquests>=3.14.0",
+]
+pyreqwest = [
+    "pyreqwest>=0.11.0;python_version >= '3.11'",
 ]
 
 [project.urls]
