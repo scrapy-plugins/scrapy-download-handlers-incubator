@@ -154,11 +154,15 @@ class NiquestsDownloadHandler(BaseHttpDownloadHandler):
     async def _get_nq_response(
         self, request: Request, timeout: float
     ) -> niquests.AsyncResponse:
+        headers = request.headers.to_unicode_dict()
+        for k in list(headers):
+            if headers[k] == "":
+                del headers[k]
         return await self._session.request(
             method=request.method,
             url=request.url,
             data=request.body,
-            headers=request.headers.to_unicode_dict(),
+            headers=headers,
             timeout=timeout,
             allow_redirects=False,
             stream=True,
