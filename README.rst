@@ -63,3 +63,25 @@ Enable it with:
     }
 
 .. _httpx: https://www.python-httpx.org/
+
+PyreqwestDownloadHandler
+------------------------
+
+This handler supports HTTP/1.1 and uses the pyreqwest_ library.
+
+Install it with:
+
+.. code:: bash
+
+    pip install scrapy-download-handlers-incubator[pyreqwest]
+
+Enable it with:
+
+.. code-block:: python
+
+    DOWNLOAD_HANDLERS = {
+        "http": "scrapy_download_handlers_incubator.PyreqwestDownloadHandler",
+        "https": "scrapy_download_handlers_incubator.PyreqwestDownloadHandler",
+    }
+
+.. _pyreqwest: https://markussintonen.github.io/pyreqwest/pyreqwest.html

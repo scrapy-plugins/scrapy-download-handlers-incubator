@@ -1,9 +1,9 @@
-"""``aiohttp``-based HTTP(S) download handler. Currently not recommended for production use."""
+"""``pyreqwest``-based HTTP(S) download handler. Currently not recommended for production use."""
 
 from __future__ import annotations
 
-import asyncio
 import logging
+from datetime import timedelta
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, NoReturn, TypedDict
 
@@ -29,16 +29,18 @@ from scrapy.utils._download_handlers import (
     normalize_bind_address,
 )
 from scrapy.utils.asyncio import is_asyncio_available
-from scrapy.utils.ssl import _make_ssl_context
 
 if TYPE_CHECKING:
     from scrapy.crawler import Crawler
 
 
 try:
-    import aiohttp
+    import pyreqwest.client
+    import pyreqwest.exceptions
+    import pyreqwest.request
+    import pyreqwest.response
 except ImportError:
-    aiohttp = None  # type: ignore[assignment]
+    pyreqwest = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +52,7 @@ class _BaseResponseArgs(TypedDict):
     protocol: str
 
 
-class AiohttpDownloadHandler(BaseHttpDownloadHandler):
+class PyreqwestDownloadHandler(BaseHttpDownloadHandler):
     _DEFAULT_CONNECT_TIMEOUT = 10
     _ITER_CHUNK_SIZE = 2048
 
@@ -60,107 +62,122 @@ class AiohttpDownloadHandler(BaseHttpDownloadHandler):
                 f"{type(self).__name__} requires the asyncio support. Make"
                 f" sure that you have either enabled the asyncio Twisted"
                 f" reactor in the TWISTED_REACTOR setting or disabled the"
-                f" TWISTED_ENABLED setting. See the asyncio documentation"
-                f" of Scrapy for more information."
+                f" TWISTED_REACTOR_ENABLED setting. See the asyncio"
+                f" documentation of Scrapy for more information."
             )
-        if aiohttp is None:  # pragma: no cover
+        if pyreqwest is None:  # pragma: no cover
             raise NotConfigured(
-                f"{type(self).__name__} requires the aiohttp library to be installed."
+                f"{type(self).__name__} requires the pyreqwest library to be installed."
             )
         super().__init__(crawler)
         logger.warning(
-            "AiohttpDownloadHandler is experimental and is not recommended for production use."
+            "PyreqwestDownloadHandler is experimental and is not recommented for production use."
         )
         bind_address = crawler.settings.get("DOWNLOAD_BIND_ADDRESS")
         bind_address = normalize_bind_address(bind_address)
-        self._ssl_context = _make_ssl_context(crawler.settings)
-        self._connector = aiohttp.TCPConnector(local_addr=bind_address)
-        self._session: aiohttp.ClientSession | None = None
 
-    def _get_session(self) -> aiohttp.ClientSession:
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(
-                connector=self._connector,
-                connector_owner=False,
-                cookie_jar=aiohttp.DummyCookieJar(),
-                auto_decompress=False,
-            )
-        return self._session
+        self._bind_address: str | None = None
+
+        if bind_address is not None:
+            host, port = bind_address
+            if port != 0:
+                logger.warning(
+                    "DOWNLOAD_BIND_ADDRESS specifies a port (%s), but %s does not "
+                    "support binding to a specific local port. Ignoring the port "
+                    "and binding only to %r.",
+                    port,
+                    type(self).__name__,
+                    host,
+                )
+            self._bind_address = host
+
+        builder: pyreqwest.client.ClientBuilder = (
+            pyreqwest.client.ClientBuilder()
+            .follow_redirects(False)
+            .default_cookie_store(False)
+            .gzip(False)
+            .deflate(False)
+            .brotli(False)
+            .zstd(False)
+        )
+
+        if not crawler.settings.getbool("DOWNLOAD_VERIFY_CERTIFICATES"):
+            builder = builder.danger_accept_invalid_certs(True)
+
+        if bind_address is not None:
+            builder = builder.local_address(self._bind_address)
+
+        self._client: pyreqwest.client.Client = builder.build()
 
     async def download_request(self, request: Request) -> Response:
         self._warn_unsupported_meta(request.meta)
 
-        timeout_value: float = request.meta.get(
+        timeout: float = request.meta.get(
             "download_timeout", self._DEFAULT_CONNECT_TIMEOUT
         )
-        timeout = aiohttp.ClientTimeout(total=timeout_value)
 
         try:
-            session = self._get_session()
-            aiohttp_response = await session._request(
-                request.method,
-                request.url,
-                data=request.body,
-                headers=request.headers.to_tuple_list(),
-                timeout=timeout,
-                ssl=self._ssl_context,
-                allow_redirects=False,
-            )
-            try:
-                return await self._read_response(
-                    aiohttp_response,
-                    request,
-                )
-            finally:
-                aiohttp_response.release()
-                await aiohttp_response.wait_for_close()
-        except (TimeoutError, asyncio.TimeoutError) as e:
-            raise DownloadTimeoutError(
-                f"Getting {request.url} took longer than {timeout_value} seconds."
-            ) from e
+            async with self._get_pyreqwest_response(
+                request, timeout
+            ) as pyreqwest_response:
+                return await self._read_response(pyreqwest_response, request)
         except (
-            aiohttp.InvalidUrlClientError,
-            aiohttp.NonHttpUrlClientError,
+            pyreqwest.exceptions.ConnectTimeoutError,
+            pyreqwest.exceptions.ReadTimeoutError,
         ) as e:
-            raise UnsupportedURLSchemeError(str(e)) from e
-        except aiohttp.ClientConnectorError as e:
-            if (
-                # os_error is absent on ClientConnectorCertificateError before aiohttp 3.13.4
-                hasattr(e, "os_error")
-                and isinstance(e.os_error, OSError)
-                and e.os_error.strerror
-                and (
-                    "Name or service not known" in e.os_error.strerror
-                    or "getaddrinfo failed" in e.os_error.strerror
-                    or "nodename nor servname" in e.os_error.strerror
-                )
-            ):
+            raise DownloadTimeoutError(
+                f"Getting {request.url} took longer than {timeout} seconds."
+            ) from e
+        except pyreqwest.exceptions.BuilderError as e:
+            if _find_in_causes(e, "URL scheme is not allowed"):
+                raise UnsupportedURLSchemeError(str(e)) from e
+            raise
+        except pyreqwest.exceptions.ConnectError as e:
+            if _find_in_causes(e, "dns error"):
                 raise CannotResolveHostError(str(e)) from e
-            raise DownloadConnectionRefusedError(str(e)) from e
-        except aiohttp.ClientError as e:
+            if _find_in_causes(e, "tcp connect error"):
+                raise DownloadConnectionRefusedError(str(e)) from e
             raise DownloadFailedError(str(e)) from e
 
     def _warn_unsupported_meta(self, meta: dict[str, Any]) -> None:
         if meta.get("bindaddress"):
+            # configurable only per-client:
+            # https://github.com/encode/httpx/issues/755#issuecomment-2746121794
             logger.error(
                 f"The 'bindaddress' request meta key is not supported by"
                 f" {type(self).__name__} and will be ignored."
             )
         if meta.get("proxy"):
+            # configurable only per-client:
+            # https://github.com/encode/httpx/issues/486
             logger.error(
                 f"The 'proxy' request meta key is not supported by"
                 f" {type(self).__name__} and will be ignored."
             )
 
+    def _get_pyreqwest_response(
+        self, request: Request, timeout: float
+    ) -> pyreqwest.request.StreamRequest:
+        rb: pyreqwest.request.RequestBuilder = (
+            self._client.request(request.method, request.url)
+            .timeout(timedelta(seconds=timeout))
+            .streamed_read_buffer_limit(0)
+        )
+        headers = request.headers.to_tuple_list()
+        if request.body:
+            rb = rb.body_bytes(request.body)
+        elif request.method == "POST" and "Content-Length" not in request.headers:
+            headers.append(("Content-Length", "0"))
+        rb = rb.headers(headers)
+        return rb.build_streamed()
+
     async def _read_response(
-        self,
-        aiohttp_response: aiohttp.ClientResponse,
-        request: Request,
+        self, pyreqwest_response: pyreqwest.response.Response, request: Request
     ) -> Response:
         maxsize: int = request.meta.get("download_maxsize", self._default_maxsize)
         warnsize: int = request.meta.get("download_warnsize", self._default_warnsize)
 
-        content_length = aiohttp_response.headers.get("Content-Length")
+        content_length = pyreqwest_response.headers.get("Content-Length")
         expected_size = int(content_length) if content_length is not None else None
         if maxsize and expected_size and expected_size > maxsize:
             self._cancel_maxsize(expected_size, maxsize, request, expected=True)
@@ -172,18 +189,13 @@ class AiohttpDownloadHandler(BaseHttpDownloadHandler):
                 get_warnsize_msg(expected_size, warnsize, request, expected=True)
             )
 
-        headers = Headers(list(aiohttp_response.headers.items()))
-
-        version = aiohttp_response.version
-        protocol_version = (
-            f"HTTP/{version.major}.{version.minor}" if version else "HTTP/1.1"
-        )
+        headers = Headers(list(pyreqwest_response.headers.items()))
 
         make_response_base_args: _BaseResponseArgs = {
-            "status": aiohttp_response.status,
+            "status": pyreqwest_response.status,
             "url": request.url,
             "headers": headers,
-            "protocol": protocol_version,
+            "protocol": pyreqwest_response.version,
         }
 
         if stop_download := check_stop_download(
@@ -201,9 +213,11 @@ class AiohttpDownloadHandler(BaseHttpDownloadHandler):
         response_body = BytesIO()
         bytes_received = 0
         try:
-            async for chunk in aiohttp_response.content.iter_chunked(
-                self._ITER_CHUNK_SIZE
-            ):
+            while (
+                chunk := await pyreqwest_response.body_reader.read(
+                    self._ITER_CHUNK_SIZE
+                )
+            ) is not None:
                 response_body.write(chunk)
                 bytes_received += len(chunk)
 
@@ -229,7 +243,9 @@ class AiohttpDownloadHandler(BaseHttpDownloadHandler):
                             bytes_received, warnsize, request, expected=False
                         )
                     )
-        except aiohttp.ClientPayloadError as e:
+        except pyreqwest.exceptions.RequestError as e:
+            if not _find_in_causes(e, "error reading a body from connection"):
+                raise
             fail_on_dataloss: bool = request.meta.get(
                 "download_fail_on_dataloss", self._fail_on_dataloss
             )
@@ -262,7 +278,10 @@ class AiohttpDownloadHandler(BaseHttpDownloadHandler):
         raise DownloadCancelledError(warning_msg)
 
     async def close(self) -> None:
-        if self._session and not self._session.closed:
-            await self._session.close()
-        if not self._connector.closed:
-            await self._connector.close()
+        await self._client.close()
+
+
+def _find_in_causes(
+    ex: pyreqwest.exceptions.DetailedPyreqwestError, substring: str
+) -> bool:
+    return any(substring in cause["message"] for cause in ex.details["causes"] or [])

@@ -38,6 +38,9 @@ aiohttp = [
 httpx = [
     "httpx>=0.28.1",
 ]
+pyreqwest = [
+    "pyreqwest>=0.11.0;python_version >= '3.11'",
+]
 
 [project.urls]
 Source = "https://github.com/scrapy/scrapy-download-handlers-incubator"

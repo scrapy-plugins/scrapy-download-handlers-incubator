@@ -1,6 +1,6 @@
 requires = ["tox>=4.25"]
 env_list = [
-    { product = [["py"], ["aiohttp", "httpx", "all", "pinned"], ["", "noreactor"]] },
+    { product = [["py"], ["aiohttp", "httpx", "pyreqwest", "all", "pinned"], ["", "noreactor"]] },
     "pre-commit",
     "typing",
     "twinecheck",
@@ -19,11 +19,13 @@ deps = [
     { replace = "if", condition = "factor.pinned", then = [
         "aiohttp==3.11.0",
         "httpx==0.28.1",
+        "pyreqwest==0.11.0;python_version >= '3.11'",  # the easiest is to skip this on CI
     ], extend = true },
 ]
 extras = [
     { replace = "if", condition = "factor.all or factor.aiohttp", then = ["aiohttp"], extend = true },
     { replace = "if", condition = "factor.all or factor.httpx", then = ["httpx"], extend = true },
+    { replace = "if", condition = "factor.all or factor.pyreqwest", then = ["pyreqwest"], extend = true },
 ]
 commands = [
     [
@@ -56,6 +58,7 @@ deps = [
     "mypy==1.20.0",
     "aiohttp==3.13.5",
     "httpx==0.28.1",
+    "pyreqwest==0.11.6",
     "pytest==9.0.2",
      "Scrapy==2.15.0",
 ]
