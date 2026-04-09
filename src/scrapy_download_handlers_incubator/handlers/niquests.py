@@ -41,8 +41,8 @@ if TYPE_CHECKING:
 try:
     import niquests
     import niquests.exceptions
+    import urllib3
     import urllib3.exceptions
-    from urllib3 import ConnectionInfo
 except ImportError:
     niquests = None  # type: ignore[assignment]
 
@@ -74,6 +74,7 @@ class NiquestsDownloadHandler(BaseHttpDownloadHandler):
                 f"{type(self).__name__} requires the niquests library to be installed."
             )
         super().__init__(crawler)
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         logger.warning(
             "NiquestsDownloadHandler is experimental and is not recommented for production use."
         )
@@ -258,13 +259,13 @@ class NiquestsDownloadHandler(BaseHttpDownloadHandler):
 
     @staticmethod
     def _get_server_ip(
-        conn_info: ConnectionInfo,
+        conn_info: urllib3.ConnectionInfo,
     ) -> IPv4Address | IPv6Address | None:
         if conn_info.destination_address:
             return ipaddress.ip_address(conn_info.destination_address[0])
         return None
 
-    def _log_tls_info(self, conn_info: ConnectionInfo) -> None:
+    def _log_tls_info(self, conn_info: urllib3.ConnectionInfo) -> None:
         if not self._tls_verbose_logging:
             return
         if conn_info.tls_version:
