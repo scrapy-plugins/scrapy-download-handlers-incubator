@@ -40,6 +40,8 @@ class NiquestsDownloadHandlerMixin:
 
 
 class TestHttp11(NiquestsDownloadHandlerMixin, TestHttp11Base):
+    handler_merges_headers = True
+
     @coroutine_test
     async def test_unsupported_bindaddress(
         self, caplog: pytest.LogCaptureFixture, mockserver: MockServer
@@ -88,6 +90,7 @@ class TestHttp11(NiquestsDownloadHandlerMixin, TestHttp11Base):
 
 
 class TestHttps11(NiquestsDownloadHandlerMixin, TestHttps11Base):
+    handler_merges_headers = True
     tls_log_message = "SSL connection to TODO using protocol TLSv1_3, cipher"
 
 

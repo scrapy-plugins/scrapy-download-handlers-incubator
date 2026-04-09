@@ -55,6 +55,8 @@ if TYPE_CHECKING:
 
 class TestHttpBase(ABC):
     is_secure = False
+    # whether the handler merges values for the same header name
+    handler_merges_headers = False
 
     @property
     @abstractmethod
@@ -182,7 +184,8 @@ class TestHttpBase(ABC):
         assert response.status == HTTPStatus.OK
         body = json.loads(response.body.decode("utf-8"))
         assert "headers" in body
-        assert body["headers"]["X-Custom-Header"] == ["foo", "bar"]
+        expected = ["foo", "bar"] if not self.handler_merges_headers else ["foo,bar"]
+        assert body["headers"]["X-Custom-Header"] == expected
 
     @coroutine_test
     async def test_server_receives_correct_request_body(
@@ -392,7 +395,10 @@ class TestHttpBase(ABC):
         request = Request(mockserver.url("/duplicate-header", is_secure=self.is_secure))
         async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
-        assert response.headers.getlist(b"Set-Cookie") == [b"a=b", b"c=d"]
+        expected = (
+            [b"a=b", b"c=d"] if not self.handler_merges_headers else [b"a=b, c=d"]
+        )
+        assert response.headers.getlist(b"Set-Cookie") == expected
 
     @coroutine_test
     async def test_download_is_not_automatically_gzip_decoded(
