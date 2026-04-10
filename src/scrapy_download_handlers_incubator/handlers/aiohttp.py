@@ -68,7 +68,7 @@ class AiohttpDownloadHandler(BaseIncubatorDownloadHandler):
 
         try:
             session = self._get_session()
-            aiohttp_response = await session._request(
+            async with await session._request(
                 request.method,
                 request.url,
                 data=request.body,
@@ -76,12 +76,8 @@ class AiohttpDownloadHandler(BaseIncubatorDownloadHandler):
                 timeout=timeout,
                 ssl=self._ssl_context,
                 allow_redirects=False,
-            )
-            try:
+            ) as aiohttp_response:
                 return await self._read_response(aiohttp_response, request)
-            finally:
-                aiohttp_response.release()
-                await aiohttp_response.wait_for_close()
         except (TimeoutError, asyncio.TimeoutError) as e:
             raise DownloadTimeoutError(
                 f"Getting {request.url} took longer than {timeout_value} seconds."

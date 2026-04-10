@@ -90,6 +90,7 @@ class NiquestsDownloadHandler(BaseIncubatorDownloadHandler):
 
         nq_response: niquests.AsyncResponse | None = None
         try:
+            # https://github.com/jawah/niquests/issues/374
             nq_response = await self._get_nq_response(request, timeout)
             return await self._read_response(nq_response, request)
         except niquests.exceptions.ReadTimeout as e:
