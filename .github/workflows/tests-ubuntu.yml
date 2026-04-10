@@ -63,10 +63,10 @@ jobs:
         tox
 
     - name: Upload coverage report
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v6
 
     - name: Upload test results
       if: ${{ !cancelled() }}
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v6
       with:
         report_type: test_results
