@@ -3,36 +3,29 @@
 from __future__ import annotations
 
 import asyncio
-import logging
-from io import BytesIO
-from typing import TYPE_CHECKING, Any, NoReturn, TypedDict
+from typing import TYPE_CHECKING, Any
 
-from scrapy import Request, signals
 from scrapy.exceptions import (
     CannotResolveHostError,
-    DownloadCancelledError,
     DownloadConnectionRefusedError,
     DownloadFailedError,
     DownloadTimeoutError,
     NotConfigured,
-    ResponseDataLossError,
     UnsupportedURLSchemeError,
 )
-from scrapy.http import Headers, Response
-from scrapy.utils._download_handlers import (
-    BaseHttpDownloadHandler,
-    check_stop_download,
-    get_dataloss_msg,
-    get_maxsize_msg,
-    get_warnsize_msg,
-    make_response,
-    normalize_bind_address,
-)
-from scrapy.utils.asyncio import is_asyncio_available
+from scrapy.http import Headers
 from scrapy.utils.ssl import _make_ssl_context
 
+from scrapy_download_handlers_incubator.handlers._base import (
+    BaseIncubatorDownloadHandler,
+)
+
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from scrapy import Request
     from scrapy.crawler import Crawler
+    from scrapy.http import Response
 
 
 try:
@@ -40,42 +33,20 @@ try:
 except ImportError:
     aiohttp = None  # type: ignore[assignment]
 
-logger = logging.getLogger(__name__)
 
-
-class _BaseResponseArgs(TypedDict):
-    status: int
-    url: str
-    headers: Headers
-    protocol: str
-
-
-class AiohttpDownloadHandler(BaseHttpDownloadHandler):
-    _DEFAULT_CONNECT_TIMEOUT = 10
-    _ITER_CHUNK_SIZE = 2048
-
+class AiohttpDownloadHandler(BaseIncubatorDownloadHandler):
     def __init__(self, crawler: Crawler):
-        if not is_asyncio_available():  # pragma: no cover
-            raise NotConfigured(
-                f"{type(self).__name__} requires the asyncio support. Make"
-                f" sure that you have either enabled the asyncio Twisted"
-                f" reactor in the TWISTED_REACTOR setting or disabled the"
-                f" TWISTED_REACTOR_ENABLED setting. See the asyncio documentation"
-                f" of Scrapy for more information."
-            )
+        super().__init__(crawler)
+        self._ssl_context = _make_ssl_context(crawler.settings)
+        self._connector = aiohttp.TCPConnector(local_addr=self._bind_address)
+        self._session: aiohttp.ClientSession | None = None
+
+    @staticmethod
+    def _check_deps_installed() -> None:
         if aiohttp is None:  # pragma: no cover
             raise NotConfigured(
-                f"{type(self).__name__} requires the aiohttp library to be installed."
+                "AiohttpDownloadHandler requires the aiohttp library to be installed."
             )
-        super().__init__(crawler)
-        logger.warning(
-            "AiohttpDownloadHandler is experimental and is not recommended for production use."
-        )
-        bind_address = crawler.settings.get("DOWNLOAD_BIND_ADDRESS")
-        bind_address = normalize_bind_address(bind_address)
-        self._ssl_context = _make_ssl_context(crawler.settings)
-        self._connector = aiohttp.TCPConnector(local_addr=bind_address)
-        self._session: aiohttp.ClientSession | None = None
 
     def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -107,10 +78,7 @@ class AiohttpDownloadHandler(BaseHttpDownloadHandler):
                 allow_redirects=False,
             )
             try:
-                return await self._read_response(
-                    aiohttp_response,
-                    request,
-                )
+                return await self._read_response(aiohttp_response, request)
             finally:
                 aiohttp_response.release()
                 await aiohttp_response.wait_for_close()
@@ -140,126 +108,34 @@ class AiohttpDownloadHandler(BaseHttpDownloadHandler):
         except aiohttp.ClientError as e:
             raise DownloadFailedError(str(e)) from e
 
-    def _warn_unsupported_meta(self, meta: dict[str, Any]) -> None:
-        if meta.get("bindaddress"):
-            logger.error(
-                f"The 'bindaddress' request meta key is not supported by"
-                f" {type(self).__name__} and will be ignored."
-            )
-        if meta.get("proxy"):
-            logger.error(
-                f"The 'proxy' request meta key is not supported by"
-                f" {type(self).__name__} and will be ignored."
-            )
+    @staticmethod
+    def _extract_headers(response: aiohttp.ClientResponse) -> Headers:
+        return Headers(list(response.headers.items()))
 
-    async def _read_response(
-        self,
-        aiohttp_response: aiohttp.ClientResponse,
+    @staticmethod
+    def _build_base_response_args(
+        response: aiohttp.ClientResponse,
         request: Request,
-    ) -> Response:
-        maxsize: int = request.meta.get("download_maxsize", self._default_maxsize)
-        warnsize: int = request.meta.get("download_warnsize", self._default_warnsize)
-
-        content_length = aiohttp_response.headers.get("Content-Length")
-        expected_size = int(content_length) if content_length is not None else None
-        if maxsize and expected_size and expected_size > maxsize:
-            self._cancel_maxsize(expected_size, maxsize, request, expected=True)
-
-        reached_warnsize = False
-        if warnsize and expected_size and expected_size > warnsize:
-            reached_warnsize = True
-            logger.warning(
-                get_warnsize_msg(expected_size, warnsize, request, expected=True)
-            )
-
-        headers = Headers(list(aiohttp_response.headers.items()))
-
-        version = aiohttp_response.version
+        headers: Headers,
+    ) -> dict[str, Any]:
+        version = response.version
         protocol_version = (
             f"HTTP/{version.major}.{version.minor}" if version else "HTTP/1.1"
         )
-
-        make_response_base_args: _BaseResponseArgs = {
-            "status": aiohttp_response.status,
+        return {
+            "status": response.status,
             "url": request.url,
             "headers": headers,
             "protocol": protocol_version,
         }
 
-        if stop_download := check_stop_download(
-            signals.headers_received,
-            self.crawler,
-            request,
-            headers=headers,
-            body_length=expected_size,
-        ):
-            return make_response(
-                **make_response_base_args,
-                stop_download=stop_download,
-            )
-
-        response_body = BytesIO()
-        bytes_received = 0
-        try:
-            async for chunk in aiohttp_response.content.iter_chunked(
-                self._ITER_CHUNK_SIZE
-            ):
-                response_body.write(chunk)
-                bytes_received += len(chunk)
-
-                if stop_download := check_stop_download(
-                    signals.bytes_received, self.crawler, request, data=chunk
-                ):
-                    return make_response(
-                        **make_response_base_args,
-                        body=response_body.getvalue(),
-                        stop_download=stop_download,
-                    )
-
-                if maxsize and bytes_received > maxsize:
-                    response_body.truncate(0)
-                    self._cancel_maxsize(
-                        bytes_received, maxsize, request, expected=False
-                    )
-
-                if warnsize and bytes_received > warnsize and not reached_warnsize:
-                    reached_warnsize = True
-                    logger.warning(
-                        get_warnsize_msg(
-                            bytes_received, warnsize, request, expected=False
-                        )
-                    )
-        except aiohttp.ClientPayloadError as e:
-            fail_on_dataloss: bool = request.meta.get(
-                "download_fail_on_dataloss", self._fail_on_dataloss
-            )
-            if not fail_on_dataloss:
-                return make_response(
-                    **make_response_base_args,
-                    body=response_body.getvalue(),
-                    flags=["dataloss"],
-                )
-            self._log_dataloss_warning(request.url)
-            raise ResponseDataLossError(str(e)) from e
-
-        return make_response(
-            **make_response_base_args,
-            body=response_body.getvalue(),
-        )
-
-    def _log_dataloss_warning(self, url: str) -> None:
-        if self._fail_on_dataloss_warned:
-            return
-        logger.warning(get_dataloss_msg(url))
-        self._fail_on_dataloss_warned = True
+    @staticmethod
+    def _iter_body_chunks(response: aiohttp.ClientResponse) -> AsyncIterator[bytes]:
+        return response.content.iter_chunked(AiohttpDownloadHandler._ITER_CHUNK_SIZE)
 
     @staticmethod
-    def _cancel_maxsize(
-        size: int, limit: int, request: Request, *, expected: bool
-    ) -> NoReturn:
-        warning_msg = get_maxsize_msg(size, limit, request, expected=expected)
-        logger.warning(warning_msg)
-        raise DownloadCancelledError(warning_msg)
+    def _is_dataloss_exception(exc: Exception) -> bool:
+        return isinstance(exc, aiohttp.ClientPayloadError)
 
     async def close(self) -> None:
         if self._session and not self._session.closed:
