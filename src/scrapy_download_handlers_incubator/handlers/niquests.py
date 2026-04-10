@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
@@ -24,11 +25,9 @@ from scrapy_download_handlers_incubator.utils import NullCookieJar
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
-    from ipaddress import IPv4Address, IPv6Address
 
     from scrapy import Request
     from scrapy.crawler import Crawler
-    from scrapy.http import Response
 
 
 try:
@@ -63,36 +62,28 @@ class NiquestsDownloadHandler(BaseIncubatorDownloadHandler):
                 "NiquestsDownloadHandler requires the niquests library to be installed."
             )
 
-    async def _get_nq_response(
+    @asynccontextmanager
+    async def _make_request(
         self, request: Request, timeout: float
-    ) -> niquests.AsyncResponse:
+    ) -> AsyncIterator[niquests.AsyncResponse]:
         headers = request.headers.to_unicode_dict()
         for k in list(headers):
             if headers[k] == "":
                 del headers[k]
-        return await self._session.request(
-            method=request.method,
-            url=request.url,
-            data=request.body,
-            headers=headers,
-            timeout=timeout,
-            allow_redirects=False,
-            stream=True,
-            verify=self._verify_certificates,
-        )
-
-    async def download_request(self, request: Request) -> Response:
-        self._warn_unsupported_meta(request.meta)
-
-        timeout: float = request.meta.get(
-            "download_timeout", self._DEFAULT_CONNECT_TIMEOUT
-        )
-
         nq_response: niquests.AsyncResponse | None = None
         try:
             # https://github.com/jawah/niquests/issues/374
-            nq_response = await self._get_nq_response(request, timeout)
-            return await self._read_response(nq_response, request)
+            nq_response = await self._session.request(
+                method=request.method,
+                url=request.url,
+                data=request.body,
+                headers=headers,
+                timeout=timeout,
+                allow_redirects=False,
+                stream=True,
+                verify=self._verify_certificates,
+            )
+            yield nq_response
         except niquests.exceptions.ReadTimeout as e:
             raise DownloadTimeoutError(
                 f"Getting {request.url} took longer than {timeout} seconds."
@@ -111,7 +102,7 @@ class NiquestsDownloadHandler(BaseIncubatorDownloadHandler):
                     raise DownloadTimeoutError(str(e)) from e
             raise DownloadFailedError(str(e)) from e
         finally:
-            if nq_response:
+            if nq_response is not None:
                 await nq_response.close()
 
     @staticmethod
@@ -125,14 +116,18 @@ class NiquestsDownloadHandler(BaseIncubatorDownloadHandler):
         headers: Headers,
     ) -> dict[str, Any]:
         assert response.conn_info is not None
+        ip_address = None
+        if response.conn_info.destination_address:
+            ip_address = ipaddress.ip_address(response.conn_info.destination_address[0])
+        protocol = None
+        if response.conn_info.http_version:
+            protocol = response.conn_info.http_version.value
         return {
             "status": response.status_code or 0,
             "url": request.url,
             "headers": headers,
-            "ip_address": NiquestsDownloadHandler._get_server_ip(response.conn_info),
-            "protocol": response.conn_info.http_version.value
-            if response.conn_info.http_version
-            else None,
+            "ip_address": ip_address,
+            "protocol": protocol,
         }
 
     @staticmethod
@@ -145,14 +140,6 @@ class NiquestsDownloadHandler(BaseIncubatorDownloadHandler):
     @staticmethod
     def _is_dataloss_exception(exc: Exception) -> bool:
         return isinstance(exc, niquests.exceptions.ChunkedEncodingError)
-
-    @staticmethod
-    def _get_server_ip(
-        conn_info: urllib3.ConnectionInfo,
-    ) -> IPv4Address | IPv6Address | None:
-        if conn_info.destination_address:
-            return ipaddress.ip_address(conn_info.destination_address[0])
-        return None
 
     def _log_tls_info(self, response: niquests.AsyncResponse, request: Request) -> None:
         conn_info = response.conn_info

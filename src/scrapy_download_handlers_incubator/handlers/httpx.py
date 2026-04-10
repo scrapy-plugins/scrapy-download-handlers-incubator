@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import ssl
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 from scrapy.exceptions import (
@@ -24,13 +25,10 @@ from scrapy_download_handlers_incubator.utils import NullCookieJar
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
-    from contextlib import AbstractAsyncContextManager
-    from ipaddress import IPv4Address, IPv6Address
 
     from httpcore import AsyncNetworkStream
     from scrapy import Request
     from scrapy.crawler import Crawler
-    from scrapy.http import Response
 
 
 try:
@@ -57,27 +55,19 @@ class HttpxDownloadHandler(BaseIncubatorDownloadHandler):
                 "HttpxDownloadHandler requires the httpx library to be installed."
             )
 
-    def _get_httpx_response(
+    @asynccontextmanager
+    async def _make_request(
         self, request: Request, timeout: float
-    ) -> AbstractAsyncContextManager[httpx.Response]:
-        return self._client.stream(
-            request.method,
-            request.url,
-            content=request.body,
-            headers=request.headers.to_tuple_list(),
-            timeout=timeout,
-        )
-
-    async def download_request(self, request: Request) -> Response:
-        self._warn_unsupported_meta(request.meta)
-
-        timeout: float = request.meta.get(
-            "download_timeout", self._DEFAULT_CONNECT_TIMEOUT
-        )
-
+    ) -> AsyncIterator[httpx.Response]:
         try:
-            async with self._get_httpx_response(request, timeout) as httpx_response:
-                return await self._read_response(httpx_response, request)
+            async with self._client.stream(
+                request.method,
+                request.url,
+                content=request.body,
+                headers=request.headers.to_tuple_list(),
+                timeout=timeout,
+            ) as response:
+                yield response
         except httpx.TimeoutException as e:
             raise DownloadTimeoutError(
                 f"Getting {request.url} took longer than {timeout} seconds."
@@ -94,9 +84,7 @@ class HttpxDownloadHandler(BaseIncubatorDownloadHandler):
             ):
                 raise CannotResolveHostError(error_message) from e
             raise DownloadConnectionRefusedError(str(e)) from e
-        except httpx.NetworkError as e:
-            raise DownloadFailedError(str(e)) from e
-        except httpx.RemoteProtocolError as e:
+        except (httpx.NetworkError, httpx.RemoteProtocolError) as e:
             raise DownloadFailedError(str(e)) from e
 
     @staticmethod
@@ -110,11 +98,13 @@ class HttpxDownloadHandler(BaseIncubatorDownloadHandler):
         headers: Headers,
     ) -> dict[str, Any]:
         network_stream: AsyncNetworkStream = response.extensions["network_stream"]
+        extra_server_addr = network_stream.get_extra_info("server_addr")
+        ip_address = ipaddress.ip_address(extra_server_addr[0])
         return {
             "status": response.status_code,
             "url": request.url,
             "headers": headers,
-            "ip_address": HttpxDownloadHandler._get_server_ip(network_stream),
+            "ip_address": ip_address,
             "protocol": response.http_version,
         }
 
@@ -127,13 +117,6 @@ class HttpxDownloadHandler(BaseIncubatorDownloadHandler):
         return isinstance(
             exc, httpx.RemoteProtocolError
         ) and "peer closed connection without sending complete message body" in str(exc)
-
-    @staticmethod
-    def _get_server_ip(
-        network_stream: AsyncNetworkStream,
-    ) -> IPv4Address | IPv6Address:
-        extra_server_addr = network_stream.get_extra_info("server_addr")
-        return ipaddress.ip_address(extra_server_addr[0])
 
     def _log_tls_info(self, response: httpx.Response, request: Request) -> None:
         network_stream: AsyncNetworkStream = response.extensions["network_stream"]

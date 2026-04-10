@@ -24,6 +24,7 @@ from scrapy.utils.asyncio import is_asyncio_available
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterable
+    from contextlib import AbstractAsyncContextManager
 
     from _typeshed import SizedBuffer
     from scrapy.crawler import Crawler
@@ -61,6 +62,16 @@ class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC):
         """Raise NotConfigured if the required deps are not installed."""
         raise NotImplementedError
 
+    @abstractmethod
+    def _make_request(
+        self, request: Request, timeout: float
+    ) -> AbstractAsyncContextManager[Any]:
+        """Return an async context manager yielding the library-specific response.
+
+        Exceptions raised by the library should be reraised as Scrapy-specific ones.
+        """
+        raise NotImplementedError
+
     @staticmethod
     @abstractmethod
     def _extract_headers(response: Any) -> Headers:
@@ -90,6 +101,14 @@ class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC):
 
     def _log_tls_info(self, response: Any, request: Request) -> None:
         """Log TLS connection details, if possible."""
+
+    async def download_request(self, request: Request) -> Response:
+        self._warn_unsupported_meta(request.meta)
+        timeout: float = request.meta.get(
+            "download_timeout", self._DEFAULT_CONNECT_TIMEOUT
+        )
+        async with self._make_request(request, timeout) as response:
+            return await self._read_response(response, request)
 
     async def _read_response(self, response: Any, request: Request) -> Response:
         maxsize: int = request.meta.get("download_maxsize", self._default_maxsize)
@@ -168,7 +187,9 @@ class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC):
                     body=response_body.getvalue(),
                     flags=["dataloss"],
                 )
-            self._log_dataloss_warning(request.url)
+            if not self._fail_on_dataloss_warned:
+                logger.warning(get_dataloss_msg(request.url))
+                self._fail_on_dataloss_warned = True
             raise ResponseDataLossError(str(e)) from e
 
         return make_response(
@@ -207,12 +228,6 @@ class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC):
                 f"The 'proxy' request meta key is not supported by"
                 f" {type(self).__name__} and will be ignored."
             )
-
-    def _log_dataloss_warning(self, url: str) -> None:
-        if self._fail_on_dataloss_warned:
-            return
-        logger.warning(get_dataloss_msg(url))
-        self._fail_on_dataloss_warned = True
 
     @staticmethod
     def _cancel_maxsize(

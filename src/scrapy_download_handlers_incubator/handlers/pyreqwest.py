@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -25,7 +26,6 @@ if TYPE_CHECKING:
     import pyreqwest.bytes
     from scrapy import Request
     from scrapy.crawler import Crawler
-    from scrapy.http import Response
 
 
 try:
@@ -53,8 +53,7 @@ class PyreqwestDownloadHandler(BaseIncubatorDownloadHandler):
         if not crawler.settings.getbool("DOWNLOAD_VERIFY_CERTIFICATES"):
             builder = builder.danger_accept_invalid_certs(True)
 
-        host = self._get_bind_address_host()
-        if host is not None:
+        if (host := self._get_bind_address_host()) is not None:
             builder = builder.local_address(host)
 
         self._client: pyreqwest.client.Client = builder.build()
@@ -66,9 +65,10 @@ class PyreqwestDownloadHandler(BaseIncubatorDownloadHandler):
                 "PyreqwestDownloadHandler requires the pyreqwest library to be installed."
             )
 
-    def _get_pyreqwest_response(
+    @asynccontextmanager
+    async def _make_request(
         self, request: Request, timeout: float
-    ) -> pyreqwest.request.StreamRequest:
+    ) -> AsyncIterator[pyreqwest.response.Response]:
         rb: pyreqwest.request.RequestBuilder = (
             self._client.request(request.method, request.url)
             .timeout(timedelta(seconds=timeout))
@@ -80,20 +80,9 @@ class PyreqwestDownloadHandler(BaseIncubatorDownloadHandler):
         elif request.method == "POST" and "Content-Length" not in request.headers:
             headers.append(("Content-Length", "0"))
         rb = rb.headers(headers)
-        return rb.build_streamed()
-
-    async def download_request(self, request: Request) -> Response:
-        self._warn_unsupported_meta(request.meta)
-
-        timeout: float = request.meta.get(
-            "download_timeout", self._DEFAULT_CONNECT_TIMEOUT
-        )
-
         try:
-            async with self._get_pyreqwest_response(
-                request, timeout
-            ) as pyreqwest_response:
-                return await self._read_response(pyreqwest_response, request)
+            async with rb.build_streamed() as response:
+                yield response
         except (
             pyreqwest.exceptions.ConnectTimeoutError,
             pyreqwest.exceptions.ReadTimeoutError,

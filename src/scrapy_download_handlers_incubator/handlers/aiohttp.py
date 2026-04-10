@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 from scrapy.exceptions import (
@@ -25,7 +26,6 @@ if TYPE_CHECKING:
 
     from scrapy import Request
     from scrapy.crawler import Crawler
-    from scrapy.http import Response
 
 
 try:
@@ -58,29 +58,25 @@ class AiohttpDownloadHandler(BaseIncubatorDownloadHandler):
             )
         return self._session
 
-    async def download_request(self, request: Request) -> Response:
-        self._warn_unsupported_meta(request.meta)
-
-        timeout_value: float = request.meta.get(
-            "download_timeout", self._DEFAULT_CONNECT_TIMEOUT
-        )
-        timeout = aiohttp.ClientTimeout(total=timeout_value)
-
+    @asynccontextmanager
+    async def _make_request(
+        self, request: Request, timeout: float
+    ) -> AsyncIterator[aiohttp.ClientResponse]:
+        session = self._get_session()
         try:
-            session = self._get_session()
             async with await session._request(
                 request.method,
                 request.url,
                 data=request.body,
                 headers=request.headers.to_tuple_list(),
-                timeout=timeout,
+                timeout=aiohttp.ClientTimeout(total=timeout),
                 ssl=self._ssl_context,
                 allow_redirects=False,
-            ) as aiohttp_response:
-                return await self._read_response(aiohttp_response, request)
+            ) as response:
+                yield response
         except (TimeoutError, asyncio.TimeoutError) as e:
             raise DownloadTimeoutError(
-                f"Getting {request.url} took longer than {timeout_value} seconds."
+                f"Getting {request.url} took longer than {timeout} seconds."
             ) from e
         except (
             aiohttp.InvalidUrlClientError,
