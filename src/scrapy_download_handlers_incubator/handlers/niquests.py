@@ -62,6 +62,7 @@ class NiquestsDownloadHandler(_Base):
             disable_http3=True,
         )
         self._session.cookies = NullCookieJar()
+        self._session.trust_env = False
 
     @staticmethod
     def _check_deps_installed() -> None:
