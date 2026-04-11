@@ -19,7 +19,7 @@ deps = [
     { replace = "if", condition = "factor.pinned", then = [
         "aiohttp==3.11.0",
         "httpx==0.28.1",
-        "niquests==3.14.0",
+        "niquests==3.16.0",
         "pyreqwest==0.11.0;python_version >= '3.11'",  # the easiest is to skip this on CI
     ], extend = true },
 ]
