@@ -40,21 +40,9 @@ class PyreqwestDownloadHandlerMixin:
 
 
 class TestHttp11(PyreqwestDownloadHandlerMixin, TestHttp11Base):
-    @coroutine_test
-    async def test_unsupported_bindaddress(
-        self, caplog: pytest.LogCaptureFixture, mockserver: MockServer
-    ) -> None:
-        meta = {"bindaddress": ("127.0.0.2", 0)}
-        request = Request(mockserver.url("/text"), meta=meta)
-        async with self.get_dh() as download_handler:
-            response = await download_handler.download_request(request)
-        assert response.body == b"Works"
-        assert (
-            "The 'bindaddress' request meta key is not supported by PyreqwestDownloadHandler"
-            in caplog.text
-        )
+    handler_supports_bindaddress_meta = False
+    always_present_req_headers = frozenset({"Accept", "User-Agent"})
 
-    # skip macOS tests
     @pytest.mark.skipif(
         sys.platform == "darwin",
         reason="127.0.0.2 is not available on macOS by default",
@@ -88,6 +76,9 @@ class TestHttp11(PyreqwestDownloadHandlerMixin, TestHttp11Base):
 
 
 class TestHttps11(PyreqwestDownloadHandlerMixin, TestHttps11Base):
+    handler_supports_bindaddress_meta = False
+    always_present_req_headers = TestHttp11.always_present_req_headers
+
     @pytest.mark.skip(reason="TLS verbose logging is not implemented")
     @coroutine_test
     async def test_tls_logging(self) -> None:  # type: ignore[override]

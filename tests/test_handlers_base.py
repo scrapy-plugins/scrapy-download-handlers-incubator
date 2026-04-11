@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from http import HTTPStatus
 from ipaddress import IPv4Address
 from socket import gethostbyname
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 from urllib.parse import urlparse
 
 import pytest
@@ -55,8 +55,12 @@ if TYPE_CHECKING:
 
 class TestHttpBase(ABC):
     is_secure = False
+    # whether the handler supports per-request bindaddress
+    handler_supports_bindaddress_meta = True
     # whether the handler merges values for the same header name
     handler_merges_headers = False
+    # default headers added by the underlying library that cannot be suppressed
+    always_present_req_headers: ClassVar[frozenset[str]] = frozenset()
 
     @property
     @abstractmethod
@@ -188,6 +192,26 @@ class TestHttpBase(ABC):
         assert body["headers"]["X-Custom-Header"] == expected
 
     @coroutine_test
+    async def test_server_receives_no_extra_headers(
+        self, mockserver: MockServer
+    ) -> None:
+        """Test that the handler doesn't add headers to the request."""
+        request = Request(mockserver.url("/echo", is_secure=self.is_secure))
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.status == HTTPStatus.OK
+        body = json.loads(response.body.decode("utf-8"))
+        assert "headers" in body
+        received_headers = set(body["headers"].keys())
+        allowed_headers = {
+            "Connection",
+            "Content-Length",
+            "Host",
+        } | self.always_present_req_headers
+        extra_headers = received_headers - allowed_headers
+        assert not extra_headers, body["headers"]
+
+    @coroutine_test
     async def test_server_receives_correct_request_body(
         self, mockserver: MockServer
     ) -> None:
@@ -244,11 +268,35 @@ class TestHttpBase(ABC):
             ]
 
     @coroutine_test
+    async def test_download_no_extra_response_headers(
+        self, mockserver: MockServer
+    ) -> None:
+        """Test that the handler doesn't add headers to the response."""
+        request = Request(
+            mockserver.url("/response-headers", is_secure=self.is_secure),
+            headers={"content-type": "application/json"},
+            body=json.dumps({}),
+        )
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.status == 200
+        received_headers = set(response.headers.keys())
+        allowed_headers = {
+            b"Content-Length",
+            b"Content-Type",
+            b"Date",
+            b"Server",
+        }
+        extra_headers = received_headers - allowed_headers
+        assert not extra_headers, response.headers
+
+    @coroutine_test
     async def test_redirect_status(self, mockserver: MockServer) -> None:
         request = Request(mockserver.url("/redirect", is_secure=self.is_secure))
         async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
         assert response.status == 302
+        assert response.headers["Location"] == b"/redirected"
 
     @coroutine_test
     async def test_redirect_status_head(self, mockserver: MockServer) -> None:
@@ -258,6 +306,7 @@ class TestHttpBase(ABC):
         async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
         assert response.status == 302
+        assert response.headers["Location"] == b"/redirected"
 
     @coroutine_test
     async def test_timeout_download_from_spider_nodata_rcvd(
@@ -676,35 +725,43 @@ class TestHttp11Base(TestHttpBase):
             response = await download_handler.download_request(request)
         assert response.protocol == "HTTP/1.1"
 
-    # skip macOS tests
     @pytest.mark.skipif(
         sys.platform == "darwin",
         reason="127.0.0.2 is not available on macOS by default",
     )
+    @pytest.mark.parametrize("setting_value", [("127.0.0.2", 0), "127.0.0.2"])
     @coroutine_test
-    async def test_download_bind_address_setting(self, mockserver: MockServer) -> None:
+    async def test_download_bind_address_setting(
+        self, mockserver: MockServer, setting_value: Any
+    ) -> None:
         request = Request(mockserver.url("/client-ip", is_secure=self.is_secure))
         async with self.get_dh(
-            {"DOWNLOAD_BIND_ADDRESS": ("127.0.0.2", 0)}
+            {"DOWNLOAD_BIND_ADDRESS": setting_value}
         ) as download_handler:
             response = await download_handler.download_request(request)
         assert response.body == b"127.0.0.2"
 
-    # skip macOS tests
     @pytest.mark.skipif(
         sys.platform == "darwin",
         reason="127.0.0.2 is not available on macOS by default",
     )
+    @pytest.mark.parametrize("meta_value", [("127.0.0.2", 0), "127.0.0.2"])
     @coroutine_test
-    async def test_download_bind_address_setting_string(
-        self, mockserver: MockServer
+    async def test_download_bind_address_meta(
+        self, mockserver: MockServer, caplog: pytest.LogCaptureFixture, meta_value: Any
     ) -> None:
-        request = Request(mockserver.url("/client-ip", is_secure=self.is_secure))
-        async with self.get_dh(
-            {"DOWNLOAD_BIND_ADDRESS": "127.0.0.2"}
-        ) as download_handler:
+        request = Request(
+            mockserver.url("/client-ip", is_secure=self.is_secure),
+            meta={"bindaddress": meta_value},
+        )
+        async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
-        assert response.body == b"127.0.0.2"
+        if self.handler_supports_bindaddress_meta:
+            assert response.body == b"127.0.0.2"
+        else:
+            assert (
+                "The 'bindaddress' request meta key is not supported by" in caplog.text
+            )
 
 
 class TestHttps11Base(TestHttp11Base):

@@ -51,6 +51,7 @@ class PyreqwestDownloadHandler(_Base):
             pyreqwest.client.ClientBuilder()
             .follow_redirects(False)
             .default_cookie_store(False)
+            .no_proxy()
             .gzip(False)
             .deflate(False)
             .brotli(False)

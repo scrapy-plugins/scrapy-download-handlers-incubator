@@ -40,19 +40,7 @@ class AiohttpDownloadHandlerMixin:
 
 
 class TestHttp11(AiohttpDownloadHandlerMixin, TestHttp11Base):
-    @coroutine_test
-    async def test_unsupported_bindaddress(
-        self, caplog: pytest.LogCaptureFixture, mockserver: MockServer
-    ) -> None:
-        meta = {"bindaddress": "127.0.0.2"}
-        request = Request(mockserver.url("/text"), meta=meta)
-        async with self.get_dh() as download_handler:
-            response = await download_handler.download_request(request)
-        assert response.body == b"Works"
-        assert (
-            "The 'bindaddress' request meta key is not supported by AiohttpDownloadHandler"
-            in caplog.text
-        )
+    handler_supports_bindaddress_meta = False
 
     @coroutine_test
     async def test_unsupported_proxy(
@@ -70,6 +58,8 @@ class TestHttp11(AiohttpDownloadHandlerMixin, TestHttp11Base):
 
 
 class TestHttps11(AiohttpDownloadHandlerMixin, TestHttps11Base):
+    handler_supports_bindaddress_meta = False
+
     @pytest.mark.skip(reason="TLS verbose logging is not implemented")
     @coroutine_test
     async def test_tls_logging(
