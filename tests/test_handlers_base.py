@@ -55,6 +55,8 @@ if TYPE_CHECKING:
 
 class TestHttpBase(ABC):
     is_secure = False
+    # whether the handler supports per-request bindaddress
+    handler_supports_bindaddress_meta = True
     # whether the handler merges values for the same header name
     handler_merges_headers = False
     # default headers added by the underlying library that cannot be suppressed
@@ -727,11 +729,14 @@ class TestHttp11Base(TestHttpBase):
         sys.platform == "darwin",
         reason="127.0.0.2 is not available on macOS by default",
     )
+    @pytest.mark.parametrize("setting_value", [("127.0.0.2", 0), "127.0.0.2"])
     @coroutine_test
-    async def test_download_bind_address_setting(self, mockserver: MockServer) -> None:
+    async def test_download_bind_address_setting(
+        self, mockserver: MockServer, setting_value: Any
+    ) -> None:
         request = Request(mockserver.url("/client-ip", is_secure=self.is_secure))
         async with self.get_dh(
-            {"DOWNLOAD_BIND_ADDRESS": ("127.0.0.2", 0)}
+            {"DOWNLOAD_BIND_ADDRESS": setting_value}
         ) as download_handler:
             response = await download_handler.download_request(request)
         assert response.body == b"127.0.0.2"
@@ -740,16 +745,23 @@ class TestHttp11Base(TestHttpBase):
         sys.platform == "darwin",
         reason="127.0.0.2 is not available on macOS by default",
     )
+    @pytest.mark.parametrize("meta_value", [("127.0.0.2", 0), "127.0.0.2"])
     @coroutine_test
-    async def test_download_bind_address_setting_string(
-        self, mockserver: MockServer
+    async def test_download_bind_address_meta(
+        self, mockserver: MockServer, caplog: pytest.LogCaptureFixture, meta_value: Any
     ) -> None:
-        request = Request(mockserver.url("/client-ip", is_secure=self.is_secure))
-        async with self.get_dh(
-            {"DOWNLOAD_BIND_ADDRESS": "127.0.0.2"}
-        ) as download_handler:
+        request = Request(
+            mockserver.url("/client-ip", is_secure=self.is_secure),
+            meta={"bindaddress": meta_value},
+        )
+        async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
-        assert response.body == b"127.0.0.2"
+        if self.handler_supports_bindaddress_meta:
+            assert response.body == b"127.0.0.2"
+        else:
+            assert (
+                "The 'bindaddress' request meta key is not supported by" in caplog.text
+            )
 
 
 class TestHttps11Base(TestHttp11Base):

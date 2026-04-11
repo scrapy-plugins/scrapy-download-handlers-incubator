@@ -39,23 +39,10 @@ class NiquestsDownloadHandlerMixin:
 
 
 class TestHttp11(NiquestsDownloadHandlerMixin, TestHttp11Base):
+    handler_supports_bindaddress_meta = False
     handler_merges_headers = True
     # urllib3.future always adds these, even with an empty session.headers
     always_present_req_headers = frozenset({"Accept-Encoding", "User-Agent"})
-
-    @coroutine_test
-    async def test_unsupported_bindaddress(
-        self, caplog: pytest.LogCaptureFixture, mockserver: MockServer
-    ) -> None:
-        meta = {"bindaddress": ("127.0.0.2", 0)}
-        request = Request(mockserver.url("/text"), meta=meta)
-        async with self.get_dh() as download_handler:
-            response = await download_handler.download_request(request)
-        assert response.body == b"Works"
-        assert (
-            "The 'bindaddress' request meta key is not supported by NiquestsDownloadHandler"
-            in caplog.text
-        )
 
     @coroutine_test
     async def test_unsupported_proxy(
@@ -73,6 +60,7 @@ class TestHttp11(NiquestsDownloadHandlerMixin, TestHttp11Base):
 
 
 class TestHttps11(NiquestsDownloadHandlerMixin, TestHttps11Base):
+    handler_supports_bindaddress_meta = False
     handler_merges_headers = True
     always_present_req_headers = TestHttp11.always_present_req_headers
     tls_log_message = "SSL connection to 127.0.0.1 using protocol TLSv1_3, cipher"
