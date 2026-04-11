@@ -56,6 +56,7 @@ class NiquestsDownloadHandler(_Base):
             "DOWNLOAD_VERIFY_CERTIFICATES"
         )
         self._session = niquests.AsyncSession(
+            headers={},
             source_address=self._bind_address,
             disable_http2=True,
             disable_http3=True,

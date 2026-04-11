@@ -54,6 +54,9 @@ class HttpxDownloadHandler(_Base):
                 local_address=self._get_bind_address_host(),
             ),
         )
+        # https://github.com/encode/httpx/discussions/1566
+        for header_name in ("accept", "accept-encoding", "connection", "user-agent"):
+            self._client.headers.pop(header_name, None)
 
     @staticmethod
     def _check_deps_installed() -> None:

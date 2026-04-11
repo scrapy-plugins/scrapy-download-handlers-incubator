@@ -40,6 +40,8 @@ class NiquestsDownloadHandlerMixin:
 
 class TestHttp11(NiquestsDownloadHandlerMixin, TestHttp11Base):
     handler_merges_headers = True
+    # urllib3.future always adds these, even with an empty session.headers
+    unremovable_default_headers = frozenset({"User-Agent", "Accept-Encoding"})
 
     @coroutine_test
     async def test_unsupported_bindaddress(
@@ -72,6 +74,7 @@ class TestHttp11(NiquestsDownloadHandlerMixin, TestHttp11Base):
 
 class TestHttps11(NiquestsDownloadHandlerMixin, TestHttps11Base):
     handler_merges_headers = True
+    unremovable_default_headers = frozenset({"User-Agent", "Accept-Encoding"})
     tls_log_message = "SSL connection to 127.0.0.1 using protocol TLSv1_3, cipher"
 
 

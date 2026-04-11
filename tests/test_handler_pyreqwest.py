@@ -40,6 +40,8 @@ class PyreqwestDownloadHandlerMixin:
 
 
 class TestHttp11(PyreqwestDownloadHandlerMixin, TestHttp11Base):
+    unremovable_default_headers = frozenset({"User-Agent", "Accept"})
+
     @coroutine_test
     async def test_unsupported_bindaddress(
         self, caplog: pytest.LogCaptureFixture, mockserver: MockServer
@@ -88,6 +90,8 @@ class TestHttp11(PyreqwestDownloadHandlerMixin, TestHttp11Base):
 
 
 class TestHttps11(PyreqwestDownloadHandlerMixin, TestHttps11Base):
+    unremovable_default_headers = frozenset({"User-Agent", "Accept"})
+
     @pytest.mark.skip(reason="TLS verbose logging is not implemented")
     @coroutine_test
     async def test_tls_logging(self) -> None:  # type: ignore[override]

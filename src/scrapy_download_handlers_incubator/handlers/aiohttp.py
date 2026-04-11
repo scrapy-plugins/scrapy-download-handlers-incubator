@@ -62,6 +62,12 @@ class AiohttpDownloadHandler(_Base):
                 connector_owner=False,
                 cookie_jar=aiohttp.DummyCookieJar(),
                 auto_decompress=False,
+                skip_auto_headers=(
+                    "Accept",
+                    "Accept-Encoding",
+                    "Content-Type",
+                    "User-Agent",
+                ),
             )
         return self._session
 
