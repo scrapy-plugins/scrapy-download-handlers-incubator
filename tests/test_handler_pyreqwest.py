@@ -90,7 +90,7 @@ class TestHttp11(PyreqwestDownloadHandlerMixin, TestHttp11Base):
 
 
 class TestHttps11(PyreqwestDownloadHandlerMixin, TestHttps11Base):
-    always_present_req_headers = TestHttp11.unremovable_default_headers
+    always_present_req_headers = TestHttp11.always_present_req_headers
 
     @pytest.mark.skip(reason="TLS verbose logging is not implemented")
     @coroutine_test

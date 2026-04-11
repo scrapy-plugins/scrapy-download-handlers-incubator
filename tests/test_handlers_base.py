@@ -723,7 +723,6 @@ class TestHttp11Base(TestHttpBase):
             response = await download_handler.download_request(request)
         assert response.protocol == "HTTP/1.1"
 
-    # skip macOS tests
     @pytest.mark.skipif(
         sys.platform == "darwin",
         reason="127.0.0.2 is not available on macOS by default",
@@ -737,7 +736,6 @@ class TestHttp11Base(TestHttpBase):
             response = await download_handler.download_request(request)
         assert response.body == b"127.0.0.2"
 
-    # skip macOS tests
     @pytest.mark.skipif(
         sys.platform == "darwin",
         reason="127.0.0.2 is not available on macOS by default",

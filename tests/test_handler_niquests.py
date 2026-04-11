@@ -74,7 +74,7 @@ class TestHttp11(NiquestsDownloadHandlerMixin, TestHttp11Base):
 
 class TestHttps11(NiquestsDownloadHandlerMixin, TestHttps11Base):
     handler_merges_headers = True
-    always_present_req_headers = TestHttp11.unremovable_default_headers
+    always_present_req_headers = TestHttp11.always_present_req_headers
     tls_log_message = "SSL connection to 127.0.0.1 using protocol TLSv1_3, cipher"
 
 
