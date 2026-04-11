@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from abc import ABC, abstractmethod
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, Generic, NoReturn, TypedDict, TypeVar
@@ -121,7 +122,9 @@ class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_Respon
         timeout: float = request.meta.get(
             "download_timeout", self._DEFAULT_CONNECT_TIMEOUT
         )
+        start_time = time.monotonic()
         async with self._make_request(request, timeout) as response:
+            request.meta["download_latency"] = time.monotonic() - start_time
             return await self._read_response(response, request)
 
     async def _read_response(self, response: _ResponseT, request: Request) -> Response:
