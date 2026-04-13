@@ -80,10 +80,8 @@ class NiquestsDownloadHandler(_Base):
         for k in list(headers):
             if headers[k] == "":
                 del headers[k]
-        nq_response: niquests.AsyncResponse | None = None
         try:
-            # https://github.com/jawah/niquests/issues/374
-            nq_response = await self._session.request(
+            async with await self._session.request(
                 method=request.method,
                 url=request.url,
                 data=request.body,
@@ -92,8 +90,8 @@ class NiquestsDownloadHandler(_Base):
                 allow_redirects=False,
                 stream=True,
                 verify=self._verify_certificates,
-            )
-            yield nq_response
+            ) as nq_response:
+                yield nq_response
         except niquests.exceptions.ReadTimeout as e:
             raise DownloadTimeoutError(
                 f"Getting {request.url} took longer than {timeout} seconds."
@@ -111,9 +109,6 @@ class NiquestsDownloadHandler(_Base):
                 case urllib3.exceptions.ReadTimeoutError():
                     raise DownloadTimeoutError(str(e)) from e
             raise DownloadFailedError(str(e)) from e
-        finally:
-            if nq_response is not None:
-                await nq_response.close()
 
     @staticmethod
     def _extract_headers(response: niquests.AsyncResponse) -> Headers:
