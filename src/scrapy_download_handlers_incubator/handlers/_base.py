@@ -51,7 +51,6 @@ class _BaseResponseArgs(TypedDict):
 
 class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_ResponseT]):
     _DEFAULT_CONNECT_TIMEOUT = 10
-    _ITER_CHUNK_SIZE = 2048
 
     def __init__(self, crawler: Crawler):
         if not is_asyncio_available():  # pragma: no cover

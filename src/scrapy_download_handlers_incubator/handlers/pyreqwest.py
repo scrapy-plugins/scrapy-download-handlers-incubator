@@ -132,11 +132,7 @@ class PyreqwestDownloadHandler(_Base):
     async def _iter_body_chunks(
         response: pyreqwest.response.Response,
     ) -> AsyncIterator[pyreqwest.bytes.Bytes]:
-        while (
-            chunk := await response.body_reader.read(
-                PyreqwestDownloadHandler._ITER_CHUNK_SIZE
-            )
-        ) is not None:
+        while (chunk := await response.body_reader.read()) is not None:
             yield chunk
 
     @staticmethod

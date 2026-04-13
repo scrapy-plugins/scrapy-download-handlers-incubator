@@ -136,7 +136,7 @@ class AiohttpDownloadHandler(_Base):
 
     @staticmethod
     def _iter_body_chunks(response: aiohttp.ClientResponse) -> AsyncIterator[bytes]:
-        return response.content.iter_chunked(AiohttpDownloadHandler._ITER_CHUNK_SIZE)
+        return response.content.iter_any()
 
     @staticmethod
     def _is_dataloss_exception(exc: Exception) -> bool:
