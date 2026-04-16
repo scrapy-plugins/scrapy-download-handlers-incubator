@@ -41,6 +41,29 @@ Enable it with:
 
 .. _aiohttp: https://docs.aiohttp.org/en/stable/
 
+CurlCffiDownloadHandler
+-----------------------
+
+This handler supports HTTP/1.1 and HTTP/2 (with
+``CURL_CFFI_HTTP2_ENABLED=True``) and uses the curl_cffi_ library.
+
+Install it with:
+
+.. code:: bash
+
+    pip install scrapy-download-handlers-incubator[curl-cffi]
+
+Enable it with:
+
+.. code-block:: python
+
+    DOWNLOAD_HANDLERS = {
+        "http": "scrapy_download_handlers_incubator.CurlCffiDownloadHandler",
+        "https": "scrapy_download_handlers_incubator.CurlCffiDownloadHandler",
+    }
+
+.. _curl_cffi: https://curl-cffi.readthedocs.io/en/latest/
+
 HttpxDownloadHandler
 --------------------
 

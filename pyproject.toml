@@ -35,6 +35,9 @@ dependencies = [
 aiohttp = [
     "aiohttp>=3.11.0",
 ]
+curl-cffi = [
+    "curl_cffi>=0.14.0",
+]
 httpx = [
     "httpx[http2]>=0.28.1",
 ]

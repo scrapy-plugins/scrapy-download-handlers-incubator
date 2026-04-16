@@ -1,5 +1,6 @@
 from .handlers import (
     AiohttpDownloadHandler,
+    CurlCffiDownloadHandler,
     HttpxDownloadHandler,
     NiquestsDownloadHandler,
     PyreqwestDownloadHandler,
@@ -7,6 +8,7 @@ from .handlers import (
 
 __all__ = [
     "AiohttpDownloadHandler",
+    "CurlCffiDownloadHandler",
     "HttpxDownloadHandler",
     "NiquestsDownloadHandler",
     "PyreqwestDownloadHandler",

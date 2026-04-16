@@ -23,24 +23,22 @@ if TYPE_CHECKING:
     from tests.mockserver.http import MockServer
 
 
-pytest.importorskip("niquests")
+pytest.importorskip("curl_cffi")
 
 
-class NiquestsDownloadHandlerMixin:
+class CurlCffiDownloadHandlerMixin:
     @property
     def download_handler_cls(self) -> type[DownloadHandlerProtocol]:
         from scrapy_download_handlers_incubator import (  # noqa: PLC0415
-            NiquestsDownloadHandler,
+            CurlCffiDownloadHandler,
         )
 
-        return NiquestsDownloadHandler
+        return CurlCffiDownloadHandler
 
 
-class TestHttp11(NiquestsDownloadHandlerMixin, TestHttp11Base):
+class TestHttp11(CurlCffiDownloadHandlerMixin, TestHttp11Base):
     handler_supports_bindaddress_meta = False
-    handler_merges_headers = True
-    # urllib3.future always adds these, even with an empty session.headers
-    always_present_req_headers = frozenset({"Accept-Encoding", "User-Agent"})
+    # handler_merges_resp_headers = True
 
     @coroutine_test
     async def test_unsupported_proxy(
@@ -52,23 +50,26 @@ class TestHttp11(NiquestsDownloadHandlerMixin, TestHttp11Base):
             response = await download_handler.download_request(request)
         assert response.body == b"Works"
         assert (
-            "The 'proxy' request meta key is not supported by NiquestsDownloadHandler"
+            "The 'proxy' request meta key is not supported by CurlCffiDownloadHandler"
             in caplog.text
         )
 
 
-class TestHttps11(NiquestsDownloadHandlerMixin, TestHttps11Base):
+class TestHttps11(CurlCffiDownloadHandlerMixin, TestHttps11Base):
     handler_supports_bindaddress_meta = False
-    handler_merges_headers = True
-    always_present_req_headers = TestHttp11.always_present_req_headers
-    tls_log_message = "SSL connection to 127.0.0.1 using protocol TLSv1_3, cipher"
+    # handler_merges_resp_headers = True
+
+    @pytest.mark.skip(reason="TLS verbose logging is not implemented")
+    @coroutine_test
+    async def test_tls_logging(self) -> None:  # type: ignore[override]
+        pass
 
 
 class TestHttps2(TestHttps11):
     HTTP2_DATALOSS_SKIP_REASON = "Content-Length mismatch raises InvalidBodyLengthError"
 
     default_handler_settings: ClassVar[dict[str, Any]] = {
-        "NIQUESTS_HTTP2_ENABLED": True,
+        "CURL_CFFI_HTTP2_ENABLED": True,
     }
 
     @coroutine_test
@@ -94,22 +95,22 @@ class TestHttps2(TestHttps11):
         pytest.skip(self.HTTP2_DATALOSS_SKIP_REASON)
 
 
-class TestSimpleHttps(NiquestsDownloadHandlerMixin, TestSimpleHttpsBase):
+class TestSimpleHttps(CurlCffiDownloadHandlerMixin, TestSimpleHttpsBase):
     pass
 
 
 class TestHttps11WrongHostname(
-    NiquestsDownloadHandlerMixin, TestHttpsWrongHostnameBase
+    CurlCffiDownloadHandlerMixin, TestHttpsWrongHostnameBase
 ):
     pass
 
 
-class TestHttps11InvalidDNSId(NiquestsDownloadHandlerMixin, TestHttpsInvalidDNSIdBase):
+class TestHttps11InvalidDNSId(CurlCffiDownloadHandlerMixin, TestHttpsInvalidDNSIdBase):
     pass
 
 
 class TestHttps11InvalidDNSPattern(
-    NiquestsDownloadHandlerMixin, TestHttpsInvalidDNSPatternBase
+    CurlCffiDownloadHandlerMixin, TestHttpsInvalidDNSPatternBase
 ):
     pass
 
@@ -123,8 +124,8 @@ class TestHttp11WithCrawler(TestHttpWithCrawlerBase):
     def settings_dict(self) -> dict[str, Any] | None:
         return {
             "DOWNLOAD_HANDLERS": {
-                "http": "scrapy_download_handlers_incubator.NiquestsDownloadHandler",
-                "https": "scrapy_download_handlers_incubator.NiquestsDownloadHandler",
+                "http": "scrapy_download_handlers_incubator.CurlCffiDownloadHandler",
+                "https": "scrapy_download_handlers_incubator.CurlCffiDownloadHandler",
             }
         }
 
@@ -139,10 +140,10 @@ class TestHttps11WithCrawler(TestHttp11WithCrawler):
 
 
 @pytest.mark.skip(reason="Proxy support is not implemented yet")
-class TestHttp11Proxy(NiquestsDownloadHandlerMixin, TestHttpProxyBase):
+class TestHttp11Proxy(CurlCffiDownloadHandlerMixin, TestHttpProxyBase):
     pass
 
 
 @pytest.mark.skip(reason="Proxy support is not implemented yet")
-class TestHttps11Proxy(NiquestsDownloadHandlerMixin, TestHttpProxyBase):
+class TestHttps11Proxy(CurlCffiDownloadHandlerMixin, TestHttpProxyBase):
     is_secure = True

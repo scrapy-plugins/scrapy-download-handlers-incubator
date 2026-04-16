@@ -1,5 +1,3 @@
-"""Tests for scrapy.core.downloader.handlers._httpx.HttpxDownloadHandler."""
-
 from __future__ import annotations
 
 import sys

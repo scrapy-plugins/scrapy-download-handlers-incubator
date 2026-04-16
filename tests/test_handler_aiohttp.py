@@ -1,5 +1,3 @@
-"""Tests for scrapy.core.downloader.handlers._aiohttp.AiohttpDownloadHandler."""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
