@@ -125,9 +125,8 @@ class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_Respon
 
     async def download_request(self, request: Request) -> Response:
         if not self.supports_proxy and request.meta.get("proxy"):
-            logger.error(  # TODO exception
-                f"The 'proxy' request meta key is not supported by"
-                f" {type(self).__name__} and will be ignored."
+            raise NotImplementedError(
+                f" {type(self).__name__} doesn't support proxies."
             )
         if not self.supports_per_request_bindaddress and request.meta.get(
             "bindaddress"
