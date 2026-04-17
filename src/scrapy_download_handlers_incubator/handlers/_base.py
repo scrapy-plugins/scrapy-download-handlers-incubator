@@ -4,7 +4,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Generic, NoReturn, TypedDict, TypeVar
+from typing import TYPE_CHECKING, ClassVar, Generic, NoReturn, TypedDict, TypeVar
 
 from scrapy import Request, signals
 from scrapy.exceptions import (
@@ -50,7 +50,9 @@ class _BaseResponseArgs(TypedDict):
 
 
 class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_ResponseT]):
-    _DEFAULT_CONNECT_TIMEOUT = 10
+    _DEFAULT_CONNECT_TIMEOUT: ClassVar[float] = 10
+    supports_proxy: ClassVar[bool] = False
+    supports_per_request_bindaddress: ClassVar[bool] = False
 
     def __init__(self, crawler: Crawler):
         if not is_asyncio_available():  # pragma: no cover
@@ -121,7 +123,18 @@ class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_Respon
         """Log TLS connection details, if possible."""
 
     async def download_request(self, request: Request) -> Response:
-        self._warn_unsupported_meta(request.meta)
+        if not self.supports_proxy and request.meta.get("proxy"):
+            logger.error(  # TODO exception
+                f"The 'proxy' request meta key is not supported by"
+                f" {type(self).__name__} and will be ignored."
+            )
+        if not self.supports_per_request_bindaddress and request.meta.get(
+            "bindaddress"
+        ):
+            logger.error(
+                f"The 'bindaddress' request meta key is not supported by"
+                f" {type(self).__name__} and will be ignored."
+            )
         timeout: float = request.meta.get(
             "download_timeout", self._DEFAULT_CONNECT_TIMEOUT
         )
@@ -235,19 +248,6 @@ class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_Respon
                 host,
             )
         return host
-
-    def _warn_unsupported_meta(self, meta: dict[str, Any]) -> None:
-        # here for now as these are not implemented anywhere
-        if meta.get("bindaddress"):
-            logger.error(
-                f"The 'bindaddress' request meta key is not supported by"
-                f" {type(self).__name__} and will be ignored."
-            )
-        if meta.get("proxy"):
-            logger.error(
-                f"The 'proxy' request meta key is not supported by"
-                f" {type(self).__name__} and will be ignored."
-            )
 
     @staticmethod
     def _cancel_maxsize(
