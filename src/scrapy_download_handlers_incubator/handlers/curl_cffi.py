@@ -96,6 +96,7 @@ class CurlCffiDownloadHandler(_Base):
                 headers=request.headers.to_tuple_list(),
                 # not exactly followed because of how it's implemented in libcurl
                 timeout=timeout,
+                # don't decompress
                 accept_encoding=None,
                 stream=True,
             )

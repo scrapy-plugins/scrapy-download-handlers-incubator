@@ -86,6 +86,7 @@ class PyreqwestDownloadHandler(_Base):
         rb: pyreqwest.request.RequestBuilder = (
             self._client.request(request.method, request.url)
             .timeout(timedelta(seconds=timeout))
+            # don't start reading the body early, which breaks the logic flow
             .streamed_read_buffer_limit(0)
         )
         headers = request.headers.to_tuple_list()
