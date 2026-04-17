@@ -45,6 +45,11 @@ else:
 
 
 class PyreqwestDownloadHandler(_Base):
+    # reqwest doesn't support per-request proxies, see e.g.
+    # https://github.com/seanmonstar/reqwest/issues/1764, while Scrapy doesn't
+    # support global proxies (HttpProxyMiddleware converts them to request meta)
+    supports_proxies = False
+
     def __init__(self, crawler: Crawler):
         super().__init__(crawler)
         enable_h2 = crawler.settings.getbool("PYREQWEST_HTTP2_ENABLED")

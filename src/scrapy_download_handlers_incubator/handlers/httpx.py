@@ -22,7 +22,10 @@ from scrapy_download_handlers_incubator.handlers._base import (
     BaseIncubatorDownloadHandler,
     _BaseResponseArgs,
 )
-from scrapy_download_handlers_incubator.utils import NullCookieJar
+from scrapy_download_handlers_incubator.utils import (
+    NullCookieJar,
+    make_insecure_ssl_ctx,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -47,24 +50,20 @@ else:
 class HttpxDownloadHandler(_Base):
     def __init__(self, crawler: Crawler):
         super().__init__(crawler)
-        enable_h2 = crawler.settings.getbool("HTTPX_HTTP2_ENABLED")
-        self._client = httpx.AsyncClient(
-            cookies=NullCookieJar(),
-            transport=httpx.AsyncHTTPTransport(
-                verify=_make_ssl_context(crawler.settings),
-                local_address=self._get_bind_address_host(),
-                http2=enable_h2,
-                limits=httpx.Limits(
-                    # hard limit on simultaneous connections
-                    max_connections=self._pool_size_total,
-                    # total number of idle connections in the pool (extra ones are closed)
-                    max_keepalive_connections=self._pool_size_total,
-                ),
-            ),
+        self._enable_h2: bool = crawler.settings.getbool("HTTPX_HTTP2_ENABLED")
+        self._ssl_context: ssl.SSLContext = _make_ssl_context(crawler.settings)
+        self._bind_host: str | None = self._get_bind_address_host()
+        self._limits: httpx.Limits = httpx.Limits(
+            # hard limit on simultaneous connections
+            max_connections=self._pool_size_total,
+            # total number of idle connections in the pool (extra ones are closed)
+            max_keepalive_connections=self._pool_size_total,
         )
-        # https://github.com/encode/httpx/discussions/1566
-        for header_name in ("accept", "accept-encoding", "connection", "user-agent"):
-            self._client.headers.pop(header_name, None)
+
+        self._default_client: httpx.AsyncClient = self._make_client()
+        # httpx doesn't support per-request proxies: https://github.com/encode/httpx/discussions/3183,
+        # so we keep a pool of clients per proxy URL. LRU eviction can be added here if needed.
+        self._proxy_clients: dict[str, httpx.AsyncClient] = {}
 
     @staticmethod
     def _check_deps_installed() -> None:
@@ -73,12 +72,50 @@ class HttpxDownloadHandler(_Base):
                 "HttpxDownloadHandler requires the httpx library to be installed."
             )
 
+    def _make_client(self, proxy_url: str | None = None) -> httpx.AsyncClient:
+        if proxy_url:
+            if proxy_url.startswith("https:") and not self.crawler.settings.getbool(
+                "DOWNLOAD_VERIFY_CERTIFICATES"
+            ):
+                # disable proxy cert verification for test simplification and to match other handlers
+                proxy_ssl_context = make_insecure_ssl_ctx()
+            else:
+                proxy_ssl_context = None
+            proxy = httpx.Proxy(proxy_url, ssl_context=proxy_ssl_context)
+        else:
+            proxy = None
+        client = httpx.AsyncClient(
+            cookies=NullCookieJar(),
+            transport=httpx.AsyncHTTPTransport(
+                verify=self._ssl_context,
+                local_address=self._bind_host,
+                http2=self._enable_h2,
+                limits=self._limits,
+                trust_env=False,
+                proxy=proxy,
+            ),
+        )
+        # https://github.com/encode/httpx/discussions/1566
+        for header_name in ("accept", "accept-encoding", "connection", "user-agent"):
+            client.headers.pop(header_name, None)
+        return client
+
+    def _get_client(self, proxy_url: str | None) -> httpx.AsyncClient:
+        if proxy_url is None:
+            return self._default_client
+        if cached := self._proxy_clients.get(proxy_url):
+            return cached
+        client = self._make_client(proxy_url)
+        self._proxy_clients[proxy_url] = client
+        return client
+
     @asynccontextmanager
     async def _make_request(
         self, request: Request, timeout: float
     ) -> AsyncIterator[httpx.Response]:
+        client = self._get_client(self._extract_proxy(request))
         try:
-            async with self._client.stream(
+            async with client.stream(
                 request.method,
                 request.url,
                 content=request.body,
@@ -101,6 +138,8 @@ class HttpxDownloadHandler(_Base):
                 or "Temporary failure in name resolution" in error_message
             ):
                 raise CannotResolveHostError(error_message) from e
+            raise DownloadConnectionRefusedError(str(e)) from e
+        except httpx.ProxyError as e:
             raise DownloadConnectionRefusedError(str(e)) from e
         except (httpx.NetworkError, httpx.RemoteProtocolError) as e:
             raise DownloadFailedError(str(e)) from e
@@ -143,4 +182,6 @@ class HttpxDownloadHandler(_Base):
             _log_sslobj_debug_info(extra_ssl_object)
 
     async def close(self) -> None:
-        await self._client.aclose()
+        await self._default_client.aclose()
+        for client in self._proxy_clients.values():
+            await client.aclose()

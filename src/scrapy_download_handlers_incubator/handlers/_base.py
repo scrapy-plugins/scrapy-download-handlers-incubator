@@ -22,6 +22,7 @@ from scrapy.utils._download_handlers import (
     normalize_bind_address,
 )
 from scrapy.utils.asyncio import is_asyncio_available
+from scrapy.utils.url import add_http_if_no_scheme
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterable
@@ -51,7 +52,8 @@ class _BaseResponseArgs(TypedDict):
 
 class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_ResponseT]):
     _DEFAULT_CONNECT_TIMEOUT: ClassVar[float] = 10
-    supports_proxy: ClassVar[bool] = False
+    # require subclasses to disable proxies explicitly with an explanation
+    supports_proxies: ClassVar[bool] = True
     supports_per_request_bindaddress: ClassVar[bool] = False
 
     def __init__(self, crawler: Crawler):
@@ -124,7 +126,7 @@ class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_Respon
         """Log TLS connection details, if possible."""
 
     async def download_request(self, request: Request) -> Response:
-        if not self.supports_proxy and request.meta.get("proxy"):
+        if not self.supports_proxies and request.meta.get("proxy"):
             raise NotImplementedError(
                 f" {type(self).__name__} doesn't support proxies."
             )
@@ -256,3 +258,10 @@ class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_Respon
         warning_msg = get_maxsize_msg(size, limit, request, expected=expected)
         logger.warning(warning_msg)
         raise DownloadCancelledError(warning_msg)
+
+    @staticmethod
+    def _extract_proxy(request: Request) -> str | None:
+        proxy: str | None = request.meta.get("proxy")
+        if proxy:
+            return add_http_if_no_scheme(proxy)
+        return None

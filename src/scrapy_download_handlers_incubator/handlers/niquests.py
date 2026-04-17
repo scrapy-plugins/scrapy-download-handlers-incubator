@@ -5,7 +5,8 @@ from __future__ import annotations
 import ipaddress
 import logging
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
+from types import MethodType
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from scrapy.exceptions import (
@@ -22,7 +23,10 @@ from scrapy_download_handlers_incubator.handlers._base import (
     BaseIncubatorDownloadHandler,
     _BaseResponseArgs,
 )
-from scrapy_download_handlers_incubator.utils import NullCookieJar
+from scrapy_download_handlers_incubator.utils import (
+    NullCookieJar,
+    make_insecure_ssl_ctx,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -32,10 +36,11 @@ if TYPE_CHECKING:
 
 
 try:
-    import niquests
+    import niquests.adapters
     import niquests.exceptions
-    import urllib3
     import urllib3.exceptions
+
+
 except ImportError:
     niquests = None  # type: ignore[assignment]
 
@@ -68,6 +73,27 @@ class NiquestsDownloadHandler(_Base):
         )
         self._session.cookies = NullCookieJar()
         self._session.trust_env = False
+        if not self._verify_certificates:
+            # ugly hack to skip proxy certificate verification, may be not worth it
+            orig_proxy_manager_for = (
+                niquests.adapters.AsyncHTTPAdapter.proxy_manager_for
+            )
+
+            def proxy_manager_for_no_verify(
+                self_: niquests.adapters.AsyncHTTPAdapter,
+                proxy: str,
+                **proxy_kwargs: Any,
+            ) -> urllib3.AsyncProxyManager:
+                proxy_ctx = make_insecure_ssl_ctx()
+                proxy_kwargs["proxy_ssl_context"] = proxy_ctx
+                proxy_kwargs["ssl_context"] = proxy_ctx
+                return orig_proxy_manager_for(self_, proxy, **proxy_kwargs)  # type: ignore[no-any-return]
+
+            for adapter in self._session.adapters.values():
+                if isinstance(adapter, niquests.adapters.AsyncHTTPAdapter):
+                    adapter.proxy_manager_for = MethodType(  # type: ignore[method-assign]
+                        proxy_manager_for_no_verify, adapter
+                    )
 
     @staticmethod
     def _check_deps_installed() -> None:
@@ -84,6 +110,8 @@ class NiquestsDownloadHandler(_Base):
         for k in list(headers):
             if headers[k] == "":
                 del headers[k]
+        proxy = self._extract_proxy(request)
+        proxies = {"http": proxy, "https": proxy} if proxy else None
         try:
             async with await self._session.request(
                 method=request.method,
@@ -94,6 +122,7 @@ class NiquestsDownloadHandler(_Base):
                 allow_redirects=False,
                 stream=True,
                 verify=self._verify_certificates,
+                proxies=proxies,
             ) as nq_response:
                 yield nq_response
         except niquests.exceptions.ReadTimeout as e:

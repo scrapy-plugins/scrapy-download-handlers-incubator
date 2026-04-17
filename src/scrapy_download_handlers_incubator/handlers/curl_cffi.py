@@ -59,6 +59,11 @@ class CurlCffiDownloadHandler(_Base):
         verify_certificates: bool = crawler.settings.getbool(
             "DOWNLOAD_VERIFY_CERTIFICATES"
         )
+        curl_options: dict[curl_cffi.const.CurlOpt, int] = {}
+        if not verify_certificates:
+            # disable proxy cert verification for test simplification and to match other handlers
+            curl_options[curl_cffi.const.CurlOpt.PROXY_SSL_VERIFYPEER] = 0
+            curl_options[curl_cffi.const.CurlOpt.PROXY_SSL_VERIFYHOST] = 0
         # https://curl-cffi.readthedocs.io/en/latest/advanced.html#selecting-http-version
         # The mapping is in curl_cffi.requests.utils.normalize_http_version()
         http_version: curl_cffi.requests.utils.HttpVersionLiteral = (
@@ -75,6 +80,7 @@ class CurlCffiDownloadHandler(_Base):
                 # hard limit on simultaneous connections
                 max_clients=self._pool_size_total,
                 http_version=http_version,
+                curl_options=curl_options,
             )
         )
 
@@ -89,6 +95,7 @@ class CurlCffiDownloadHandler(_Base):
     async def _make_request(  # noqa: PLR0912
         self, request: Request, timeout: float
     ) -> AsyncIterator[curl_cffi.Response]:
+        proxy = self._extract_proxy(request)
         response: curl_cffi.Response | None = None
         try:
             response = await self._session.request(
@@ -100,6 +107,7 @@ class CurlCffiDownloadHandler(_Base):
                 timeout=timeout,
                 # don't decompress
                 accept_encoding=None,
+                proxy=proxy,
                 stream=True,
             )
             yield response
@@ -129,6 +137,7 @@ class CurlCffiDownloadHandler(_Base):
                 case (
                     curl_cffi.requests.exceptions.CertificateVerifyError
                     | curl_cffi.requests.exceptions.SSLError
+                    | curl_cffi.requests.exceptions.ProxyError
                 ):
                     raise DownloadConnectionRefusedError(str(e)) from e
                 case curl_cffi.requests.exceptions.RequestException:

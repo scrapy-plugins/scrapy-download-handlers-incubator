@@ -59,14 +59,6 @@ class TestHttp11(HttpxDownloadHandlerMixin, TestHttp11Base):
         assert "DOWNLOAD_BIND_ADDRESS specifies a port (12345)" in caplog.text
         assert "Ignoring the port" in caplog.text
 
-    @coroutine_test
-    async def test_unsupported_proxy(self, mockserver: MockServer) -> None:
-        meta = {"proxy": "127.0.0.2"}
-        request = Request(mockserver.url("/text"), meta=meta)
-        async with self.get_dh() as download_handler:
-            with pytest.raises(NotImplementedError, match="doesn't support proxies"):
-                await download_handler.download_request(request)
-
 
 class TestHttps11(HttpxDownloadHandlerMixin, TestHttps11Base):
     handler_supports_bindaddress_meta = False
@@ -145,11 +137,10 @@ class TestHttps11WithCrawler(TestHttp11WithCrawler):
         pass
 
 
-@pytest.mark.skip(reason="Proxy support is not implemented yet")
 class TestHttp11Proxy(HttpxDownloadHandlerMixin, TestHttpProxyBase):
-    pass
+    expected_http_proxy_request_body = b"http://example.com/"
 
 
-@pytest.mark.skip(reason="Proxy support is not implemented yet")
 class TestHttps11Proxy(HttpxDownloadHandlerMixin, TestHttpProxyBase):
     is_secure = True
+    expected_http_proxy_request_body = TestHttp11Proxy.expected_http_proxy_request_body

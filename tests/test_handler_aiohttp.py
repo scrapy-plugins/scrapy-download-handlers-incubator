@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from scrapy import Request
 
 from tests.test_handlers_base import (
     TestHttp11Base,
@@ -39,14 +38,6 @@ class AiohttpDownloadHandlerMixin:
 
 class TestHttp11(AiohttpDownloadHandlerMixin, TestHttp11Base):
     handler_supports_bindaddress_meta = False
-
-    @coroutine_test
-    async def test_unsupported_proxy(self, mockserver: MockServer) -> None:
-        meta = {"proxy": "127.0.0.2"}
-        request = Request(mockserver.url("/text"), meta=meta)
-        async with self.get_dh() as download_handler:
-            with pytest.raises(NotImplementedError, match="doesn't support proxies"):
-                await download_handler.download_request(request)
 
 
 class TestHttps11(AiohttpDownloadHandlerMixin, TestHttps11Base):
@@ -112,11 +103,9 @@ class TestHttps11WithCrawler(TestHttp11WithCrawler):
         pass
 
 
-@pytest.mark.skip(reason="Proxy support is not implemented yet")
 class TestHttp11Proxy(AiohttpDownloadHandlerMixin, TestHttpProxyBase):
     pass
 
 
-@pytest.mark.skip(reason="Proxy support is not implemented yet")
 class TestHttps11Proxy(AiohttpDownloadHandlerMixin, TestHttpProxyBase):
     is_secure = True

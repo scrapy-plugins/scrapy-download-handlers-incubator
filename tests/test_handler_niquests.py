@@ -42,14 +42,6 @@ class TestHttp11(NiquestsDownloadHandlerMixin, TestHttp11Base):
     # urllib3.future always adds these, even with an empty session.headers
     always_present_req_headers = frozenset({"Accept-Encoding", "User-Agent"})
 
-    @coroutine_test
-    async def test_unsupported_proxy(self, mockserver: MockServer) -> None:
-        meta = {"proxy": "127.0.0.2"}
-        request = Request(mockserver.url("/text"), meta=meta)
-        async with self.get_dh() as download_handler:
-            with pytest.raises(NotImplementedError, match="doesn't support proxies"):
-                await download_handler.download_request(request)
-
 
 class TestHttps11(NiquestsDownloadHandlerMixin, TestHttps11Base):
     handler_supports_bindaddress_meta = False
@@ -132,11 +124,15 @@ class TestHttps11WithCrawler(TestHttp11WithCrawler):
         pass
 
 
-@pytest.mark.skip(reason="Proxy support is not implemented yet")
 class TestHttp11Proxy(NiquestsDownloadHandlerMixin, TestHttpProxyBase):
-    pass
+    @pytest.mark.skip(reason="Hangs, as the test is hacky")
+    def test_download_with_proxy_https_timeout(self) -> None:  # type: ignore[override]
+        pass
 
 
-@pytest.mark.skip(reason="Proxy support is not implemented yet")
 class TestHttps11Proxy(NiquestsDownloadHandlerMixin, TestHttpProxyBase):
     is_secure = True
+
+    @pytest.mark.skip(reason="Hangs, as the test is hacky")
+    def test_download_with_proxy_https_timeout(self) -> None:  # type: ignore[override]
+        pass
