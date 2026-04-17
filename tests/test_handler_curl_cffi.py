@@ -41,18 +41,12 @@ class TestHttp11(CurlCffiDownloadHandlerMixin, TestHttp11Base):
     # handler_merges_resp_headers = True
 
     @coroutine_test
-    async def test_unsupported_proxy(
-        self, caplog: pytest.LogCaptureFixture, mockserver: MockServer
-    ) -> None:
+    async def test_unsupported_proxy(self, mockserver: MockServer) -> None:
         meta = {"proxy": "127.0.0.2"}
         request = Request(mockserver.url("/text"), meta=meta)
         async with self.get_dh() as download_handler:
-            response = await download_handler.download_request(request)
-        assert response.body == b"Works"
-        assert (
-            "The 'proxy' request meta key is not supported by CurlCffiDownloadHandler"
-            in caplog.text
-        )
+            with pytest.raises(NotImplementedError, match="doesn't support proxies"):
+                await download_handler.download_request(request)
 
 
 class TestHttps11(CurlCffiDownloadHandlerMixin, TestHttps11Base):
@@ -69,7 +63,7 @@ class TestHttps2(TestHttps11):
     HTTP2_DATALOSS_SKIP_REASON = "Content-Length mismatch raises InvalidBodyLengthError"
 
     default_handler_settings: ClassVar[dict[str, Any]] = {
-        "CURL_CFFI_HTTP2_ENABLED": True,
+        "CURL_CFFI_HTTP_VERSION": "v2",
     }
 
     @coroutine_test

@@ -60,18 +60,12 @@ class TestHttp11(HttpxDownloadHandlerMixin, TestHttp11Base):
         assert "Ignoring the port" in caplog.text
 
     @coroutine_test
-    async def test_unsupported_proxy(
-        self, caplog: pytest.LogCaptureFixture, mockserver: MockServer
-    ) -> None:
+    async def test_unsupported_proxy(self, mockserver: MockServer) -> None:
         meta = {"proxy": "127.0.0.2"}
         request = Request(mockserver.url("/text"), meta=meta)
         async with self.get_dh() as download_handler:
-            response = await download_handler.download_request(request)
-        assert response.body == b"Works"
-        assert (
-            "The 'proxy' request meta key is not supported by HttpxDownloadHandler"
-            in caplog.text
-        )
+            with pytest.raises(NotImplementedError, match="doesn't support proxies"):
+                await download_handler.download_request(request)
 
 
 class TestHttps11(HttpxDownloadHandlerMixin, TestHttps11Base):

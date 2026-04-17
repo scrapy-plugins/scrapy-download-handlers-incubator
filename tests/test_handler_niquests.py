@@ -43,18 +43,12 @@ class TestHttp11(NiquestsDownloadHandlerMixin, TestHttp11Base):
     always_present_req_headers = frozenset({"Accept-Encoding", "User-Agent"})
 
     @coroutine_test
-    async def test_unsupported_proxy(
-        self, caplog: pytest.LogCaptureFixture, mockserver: MockServer
-    ) -> None:
+    async def test_unsupported_proxy(self, mockserver: MockServer) -> None:
         meta = {"proxy": "127.0.0.2"}
         request = Request(mockserver.url("/text"), meta=meta)
         async with self.get_dh() as download_handler:
-            response = await download_handler.download_request(request)
-        assert response.body == b"Works"
-        assert (
-            "The 'proxy' request meta key is not supported by NiquestsDownloadHandler"
-            in caplog.text
-        )
+            with pytest.raises(NotImplementedError, match="doesn't support proxies"):
+                await download_handler.download_request(request)
 
 
 class TestHttps11(NiquestsDownloadHandlerMixin, TestHttps11Base):

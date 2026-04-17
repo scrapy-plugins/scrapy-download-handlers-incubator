@@ -61,9 +61,9 @@ class NiquestsDownloadHandler(_Base):
             source_address=self._bind_address,
             disable_http2=not enable_h2,
             disable_http3=True,
-            # number of host buckets in the pool
+            # number of host buckets in the pool (older extra ones are discarded)
             pool_connections=self._pool_size_total,
-            # number of connections per host in the pool
+            # number of connections per host in the pool (newer extra ones are not put there)
             pool_maxsize=self._pool_size_per_host,
         )
         self._session.cookies = NullCookieJar()
@@ -131,8 +131,9 @@ class NiquestsDownloadHandler(_Base):
         protocol = None
         if response.conn_info.http_version:
             protocol = response.conn_info.http_version.value
+        assert response.status_code is not None
         return {
-            "status": response.status_code or 0,
+            "status": response.status_code,
             "url": request.url,
             "headers": headers,
             "ip_address": ip_address,

@@ -57,7 +57,7 @@ class HttpxDownloadHandler(_Base):
                 limits=httpx.Limits(
                     # hard limit on simultaneous connections
                     max_connections=self._pool_size_total,
-                    # total number of connections in the pool
+                    # total number of idle connections in the pool (extra ones are closed)
                     max_keepalive_connections=self._pool_size_total,
                 ),
             ),

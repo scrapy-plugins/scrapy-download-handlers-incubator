@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     import curl_cffi.requests.session
+    import curl_cffi.requests.utils
     from scrapy import Request
     from scrapy.crawler import Crawler
 
@@ -58,10 +59,11 @@ class CurlCffiDownloadHandler(_Base):
         verify_certificates: bool = crawler.settings.getbool(
             "DOWNLOAD_VERIFY_CERTIFICATES"
         )
-        if crawler.settings.getbool("CURL_CFFI_HTTP2_ENABLED"):
-            http_version = curl_cffi.const.CurlHttpVersion.V2TLS
-        else:
-            http_version = curl_cffi.const.CurlHttpVersion.V1_1
+        # https://curl-cffi.readthedocs.io/en/latest/advanced.html#selecting-http-version
+        # The mapping is in curl_cffi.requests.utils.normalize_http_version()
+        http_version: curl_cffi.requests.utils.HttpVersionLiteral = (
+            crawler.settings.get("CURL_CFFI_HTTP_VERSION", "v1")
+        )
         self._session: curl_cffi.AsyncSession[curl_cffi.Response] = (
             curl_cffi.AsyncSession(
                 interface=self._get_bind_address_host(),
@@ -96,6 +98,7 @@ class CurlCffiDownloadHandler(_Base):
                 headers=request.headers.to_tuple_list(),
                 # not exactly followed because of how it's implemented in libcurl
                 timeout=timeout,
+                # don't decompress
                 accept_encoding=None,
                 stream=True,
             )
@@ -123,7 +126,10 @@ class CurlCffiDownloadHandler(_Base):
                     }:
                         raise DownloadFailedError(str(e)) from e
                     raise DownloadConnectionRefusedError(str(e)) from e
-                case curl_cffi.requests.exceptions.CertificateVerifyError:
+                case (
+                    curl_cffi.requests.exceptions.CertificateVerifyError
+                    | curl_cffi.requests.exceptions.SSLError
+                ):
                     raise DownloadConnectionRefusedError(str(e)) from e
                 case curl_cffi.requests.exceptions.RequestException:
                     raise DownloadFailedError(str(e)) from e
