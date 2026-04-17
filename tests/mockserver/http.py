@@ -1,74 +1,87 @@
 from __future__ import annotations
 
-from twisted.web import resource
-from twisted.web.static import Data
-from twisted.web.util import Redirect
+import argparse
+import asyncio
+from pathlib import Path
 
-from .http_base import BaseMockServer, main_factory
-from .http_resources import (
-    ArbitraryLengthPayloadResource,
-    BrokenChunkedResource,
-    BrokenDownloadResource,
-    ChunkedResource,
-    ClientIPResource,
-    Compress,
-    ContentLengthHeaderResource,
-    Delay,
-    Drop,
-    DuplicateHeaderResource,
-    Echo,
-    EmptyContentTypeHeaderResource,
-    ForeverTakingResource,
-    HostHeaderResource,
-    LargeChunkedFileResource,
-    Partial,
-    PayloadResource,
-    ResponseHeadersResource,
-    SetCookie,
-    Status,
-)
-
-
-class Root(resource.Resource):
-    def __init__(self):
-        super().__init__()
-        self.putChild(b"status", Status())
-        self.putChild(b"delay", Delay())
-        self.putChild(b"partial", Partial())
-        self.putChild(b"drop", Drop())
-        self.putChild(b"echo", Echo())
-        self.putChild(b"payload", PayloadResource())
-        self.putChild(b"alpayload", ArbitraryLengthPayloadResource())
-        self.putChild(b"text", Data(b"Works", "text/plain"))
-        self.putChild(b"redirect", Redirect(b"/redirected"))
-        self.putChild(b"redirected", Data(b"Redirected here", "text/plain"))
-        self.putChild(b"wait", ForeverTakingResource())
-        self.putChild(b"hang-after-headers", ForeverTakingResource(write=True))
-        self.putChild(b"host", HostHeaderResource())
-        self.putChild(b"client-ip", ClientIPResource())
-        self.putChild(b"broken", BrokenDownloadResource())
-        self.putChild(b"chunked", ChunkedResource())
-        self.putChild(b"broken-chunked", BrokenChunkedResource())
-        self.putChild(b"contentlength", ContentLengthHeaderResource())
-        self.putChild(b"nocontenttype", EmptyContentTypeHeaderResource())
-        self.putChild(b"largechunkedfile", LargeChunkedFileResource())
-        self.putChild(b"compress", Compress())
-        self.putChild(b"duplicate-header", DuplicateHeaderResource())
-        self.putChild(b"response-headers", ResponseHeadersResource())
-        self.putChild(b"set-cookie", SetCookie())
-
-    def getChild(self, name, request):
-        return self
-
-    def render(self, request):
-        return b"Scrapy mock HTTP server\n"
+from .asgi_app import app
+from .http_base import BaseMockServer
 
 
 class MockServer(BaseMockServer):
     module_name = "tests.mockserver.http"
 
 
-main = main_factory(Root)
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--keyfile", default=None)
+    parser.add_argument("--certfile", default=None)
+    parser.add_argument("--cipher-string", default=None)
+    parser.add_argument("--no-listen-http", dest="listen_http", action="store_false")
+    parser.add_argument("--no-listen-https", dest="listen_https", action="store_false")
+    parser.add_argument("--listen-h3", action="store_true")
+    parser.set_defaults(listen_http=True, listen_https=True, listen_h3=False)
+    args = parser.parse_args()
+
+    from hypercorn.asyncio import wrap_app
+    from hypercorn.asyncio.run import worker_serve
+    from hypercorn.asyncio.tcp_server import TCPServer
+    from hypercorn.config import Config
+
+    from .asgi_app import current_writer
+
+    # Expose the per-connection writer to ASGI handlers via a contextvar, so
+    # /drop?abort=1 can force a TCP RST. TaskGroup children inherit the context.
+    _original_run = TCPServer.run
+
+    async def _run_with_writer(self):  # type: ignore[no-untyped-def]
+        current_writer.set(self.writer)
+        await _original_run(self)
+
+    TCPServer.run = _run_with_writer  # type: ignore[method-assign]
+
+    config = Config()
+    config.accesslog = None
+    config.errorlog = None
+    config.graceful_timeout = 0.5
+    # Don't auto-add Date so handlers that set their own produce a single Date header.
+    config.include_date_header = False
+
+    keys_dir = Path(__file__).parent.parent / "keys"
+    config.certfile = args.certfile or str(keys_dir / "localhost.crt")
+    config.keyfile = args.keyfile or str(keys_dir / "localhost.key")
+    if args.cipher_string:
+        config.ciphers = args.cipher_string
+
+    config.insecure_bind = ["127.0.0.1:0"] if args.listen_http else []
+    config.bind = ["127.0.0.1:0"] if args.listen_https else []
+    config.quic_bind = ["127.0.0.1:0"] if args.listen_h3 else []
+    config.alpn_protocols = ["h2", "http/1.1"]
+
+    sockets = config.create_sockets()
+
+    # BaseMockServer reads addresses in this exact order: http, https, h3.
+    for sock in sockets.insecure_sockets:
+        host_, port_ = sock.getsockname()[:2]
+        print(f"http://{host_}:{port_}", flush=True)
+    for sock in sockets.secure_sockets:
+        host_, port_ = sock.getsockname()[:2]
+        print(f"https://{host_}:{port_}", flush=True)
+    for sock in sockets.quic_sockets:
+        host_, port_ = sock.getsockname()[:2]
+        print(f"https+h3://{host_}:{port_}", flush=True)
+
+    async def _run() -> None:
+        await worker_serve(
+            wrap_app(app, config.wsgi_max_body_size, None),
+            config,
+            sockets=sockets,
+        )
+
+    try:
+        asyncio.run(_run())
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":

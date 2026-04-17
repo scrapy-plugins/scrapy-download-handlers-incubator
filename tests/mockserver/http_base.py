@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 class BaseMockServer(ABC):
     listen_http: bool = True
     listen_https: bool = True
+    listen_h3: bool = False
 
     @property
     @abstractmethod
@@ -31,13 +32,16 @@ class BaseMockServer(ABC):
         raise NotImplementedError
 
     def __init__(self) -> None:
-        if not self.listen_http and not self.listen_https:
-            raise ValueError("At least one of listen_http and listen_https must be set")
+        if not self.listen_http and not self.listen_https and not self.listen_h3:
+            raise ValueError(
+                "At least one of listen_http/listen_https/listen_h3 must be set"
+            )
 
         self.proc: Popen[bytes] | None = None
         self.host: str = "127.0.0.1"
         self.http_port: int | None = None
         self.https_port: int | None = None
+        self.h3_port: int | None = None
 
     def __enter__(self):
         self.proc = Popen(
@@ -46,13 +50,11 @@ class BaseMockServer(ABC):
             env=get_script_run_env(),
         )
         if self.listen_http:
-            http_address = self.proc.stdout.readline().strip().decode("ascii")
-            http_parsed = urlparse(http_address)
-            self.http_port = http_parsed.port
+            self.http_port = urlparse(self._readline()).port
         if self.listen_https:
-            https_address = self.proc.stdout.readline().strip().decode("ascii")
-            https_parsed = urlparse(https_address)
-            self.https_port = https_parsed.port
+            self.https_port = urlparse(self._readline()).port
+        if self.listen_h3:
+            self.h3_port = urlparse(self._readline()).port
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -60,8 +62,20 @@ class BaseMockServer(ABC):
             self.proc.kill()
             self.proc.communicate()
 
+    def _readline(self) -> str:
+        assert self.proc is not None
+        assert self.proc.stdout is not None
+        return self.proc.stdout.readline().strip().decode("ascii")
+
     def get_additional_args(self) -> list[str]:
-        return []
+        args: list[str] = []
+        if not self.listen_http:
+            args.append("--no-listen-http")
+        if not self.listen_https:
+            args.append("--no-listen-https")
+        if self.listen_h3:
+            args.append("--listen-h3")
+        return args
 
     def port(self, is_secure: bool = False) -> int:
         if not is_secure and not self.listen_http:
@@ -93,19 +107,31 @@ def main_factory(
         root = resource_class()
         factory = Site(root)  # type: ignore[no-untyped-call]
 
-        if listen_http:
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--no-listen-http", dest="listen_http", action="store_false"
+        )
+        parser.add_argument(
+            "--no-listen-https", dest="listen_https", action="store_false"
+        )
+        parser.add_argument("--listen-h3", action="store_true")
+        parser.set_defaults(listen_http=listen_http, listen_https=listen_https)
+        parser.add_argument("--keyfile", help="SSL key file")
+        parser.add_argument("--certfile", help="SSL certificate file")
+        parser.add_argument(
+            "--cipher-string", default=None, help="SSL cipher string (optional)"
+        )
+        args = parser.parse_args()
+
+        if args.listen_h3:
+            raise RuntimeError(
+                "HTTP/3 is not supported by main_factory (Twisted mock server)."
+            )
+
+        if args.listen_http:
             http_port = reactor.listenTCP(0, factory)
 
-        if listen_https:
-            parser = argparse.ArgumentParser()
-            parser.add_argument("--keyfile", help="SSL key file")
-            parser.add_argument("--certfile", help="SSL certificate file")
-            parser.add_argument(
-                "--cipher-string",
-                default=None,
-                help="SSL cipher string (optional)",
-            )
-            args = parser.parse_args()
+        if args.listen_https:
             context_factory_kw = {}
             if args.keyfile:
                 context_factory_kw["keyfile"] = args.keyfile
@@ -117,14 +143,12 @@ def main_factory(
             https_port = reactor.listenSSL(0, factory, context_factory)
 
         def print_listening():
-            if listen_http:
+            if args.listen_http:
                 http_host = http_port.getHost()
-                http_address = f"http://{http_host.host}:{http_host.port}"
-                print(http_address)
-            if listen_https:
+                print(f"http://{http_host.host}:{http_host.port}")
+            if args.listen_https:
                 https_host = https_port.getHost()
-                https_address = f"https://{https_host.host}:{https_host.port}"
-                print(https_address)
+                print(f"https://{https_host.host}:{https_host.port}")
 
         reactor.callWhenRunning(print_listening)
         reactor.run()
