@@ -107,7 +107,10 @@ follow_imports = "skip"
 module = "twisted.internet.reactor"
 follow_imports = "skip"
 
-[tool.pytest]
+# [tool.pytest] requires 9.0.0+, but the py-pinned-noreactor env can't use it
+# due to mutual version restrictions between pytest, pytest-asyncio, mitmproxy
+# and typing-extensions.
+[tool.pytest.ini_options]
 addopts = ["--import-mode=importlib"]
 filterwarnings = [
     "ignore::DeprecationWarning:twisted.web.static",
