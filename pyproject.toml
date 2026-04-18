@@ -75,6 +75,7 @@ regex = true
 exclude_also = [
     "@(abc\\.)?abstractmethod",
 ]
+
 [tool.coverage.run]
 branch = true
 
@@ -88,7 +89,10 @@ source = [
 strict = true
 
 [[tool.mypy.overrides]]
-module = "tests.*"
+module = [
+    "tests.spiders",
+    "tests.mockserver.*",
+]
 allow_untyped_defs = true
 check_untyped_defs = false
 

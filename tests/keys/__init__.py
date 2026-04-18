@@ -21,7 +21,7 @@ from cryptography.x509.oid import NameOID
 
 
 # https://cryptography.io/en/latest/x509/tutorial/#creating-a-self-signed-certificate
-def generate_keys():
+def generate_keys() -> None:
     folder = Path(__file__).parent
 
     key = rsa.generate_private_key(
