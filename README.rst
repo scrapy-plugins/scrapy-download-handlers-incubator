@@ -92,7 +92,7 @@ Proxies                        Yes (HTTPS proxies for HTTPS destinations are not
 HTTP/2                         No (not supported by the library)
 TLS verbose logging            Partial (skipped for small responses)
 ``response.ip_address``        Partial (skipped for small responses)
-``response.certificate``       No (not implemented)
+``response.certificate``       Partial (DER bytes; skipped for small responses)
 Per-request ``bindaddress``    No (not supported by the library)
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 ============================== =============================================================================
@@ -188,7 +188,7 @@ HTTP/2                         Yes
 HTTP/3                         No (not supported by the library)
 TLS verbose logging            Yes
 ``response.ip_address``        Yes
-``response.certificate``       No (not implemented)
+``response.certificate``       Yes (DER bytes)
 Per-request ``bindaddress``    No (not supported by the library)
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 ============================== ========================================
@@ -236,7 +236,7 @@ HTTP/2                         Yes
 HTTP/3                         No (not implemented)
 TLS verbose logging            Yes
 ``response.ip_address``        Yes
-``response.certificate``       No (not implemented)
+``response.certificate``       Yes (DER bytes)
 Per-request ``bindaddress``    No (not supported by the library)
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 ============================== ========================================

@@ -97,7 +97,9 @@ class TestHttp11WithCrawler(TestHttpWithCrawlerBase):
 class TestHttps11WithCrawler(TestHttp11WithCrawler):
     is_secure = True
 
-    @pytest.mark.skip(reason="response.certificate is not implemented")
+    @pytest.mark.skip(
+        reason="response.certificate is not available for short responses"
+    )
     @coroutine_test
     async def test_response_ssl_certificate(self, mockserver: MockServer) -> None:
         pass

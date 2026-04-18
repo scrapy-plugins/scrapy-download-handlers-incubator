@@ -164,6 +164,7 @@ class NiquestsDownloadHandler(_Base):
             "status": response.status_code,
             "url": request.url,
             "headers": headers,
+            "certificate": response.conn_info.certificate_der,
             "ip_address": ip_address,
             "protocol": protocol,
         }

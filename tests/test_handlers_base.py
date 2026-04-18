@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from urllib.parse import urlparse
 
 import pytest
+from cryptography.x509 import load_der_x509_certificate
 from scrapy.exceptions import (
     CannotResolveHostError,
     DownloadCancelledError,
@@ -938,9 +939,14 @@ class TestHttpWithCrawlerBase(ABC):
         await crawler.crawl_async(seed=url, mockserver=mockserver)
         assert isinstance(crawler.spider, SingleRequestSpider)
         cert = crawler.spider.meta["responses"][0].certificate
-        assert isinstance(cert, Certificate)
-        assert cert.getSubject().commonName == b"localhost"  # type: ignore[no-untyped-call]
-        assert cert.getIssuer().commonName == b"localhost"  # type: ignore[no-untyped-call]
+        assert cert is not None
+        if isinstance(cert, Certificate):  # Twisted
+            assert cert.getSubject().commonName == b"localhost"  # type: ignore[no-untyped-call]
+            assert cert.getIssuer().commonName == b"localhost"  # type: ignore[no-untyped-call]
+        elif isinstance(cert, bytes):  # in several handlers it's DER bytes
+            cert_x509 = load_der_x509_certificate(cert)
+            assert cert_x509.subject.rfc4514_string() == "CN=localhost,O=Scrapy,C=IE"
+            assert cert_x509.issuer.rfc4514_string() == "CN=localhost,O=Scrapy,C=IE"
 
     @coroutine_test
     async def test_response_ip_address(self, mockserver: MockServer) -> None:

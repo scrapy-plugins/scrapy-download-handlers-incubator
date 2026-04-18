@@ -131,28 +131,27 @@ class AiohttpDownloadHandler(_Base):
         protocol_version = (
             f"HTTP/{version.major}.{version.minor}" if version else "HTTP/1.1"
         )
+        ip_address = cert = None
+        conn = response.connection
+        if conn is not None and conn.transport is not None:
+            # This only work for large responses, where the connection
+            # is not closed right in ClientResponse.start().
+            # We can subclass ClientResponse to capture peername and
+            # ssl_object early if we really want.
+            peername = conn.transport.get_extra_info("peername")
+            if peername:
+                ip_address = ipaddress.ip_address(peername[0])
+            ssl_object = conn.transport.get_extra_info("ssl_object")
+            if isinstance(ssl_object, ssl.SSLObject):
+                cert = ssl_object.getpeercert(binary_form=True)
         return {
             "status": response.status,
             "url": request.url,
             "headers": headers,
-            "ip_address": AiohttpDownloadHandler._get_server_ip(response),
+            "certificate": cert,
+            "ip_address": ip_address,
             "protocol": protocol_version,
         }
-
-    # Both _get_server_ip() and _log_tls_info() only work for large responses,
-    # where the connection is not closed right in ClientResponse.start().
-    # We can subclass ClientResponse to capture peername and ssl_object if we really want.
-    @staticmethod
-    def _get_server_ip(
-        response: aiohttp.ClientResponse,
-    ) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
-        conn = response.connection
-        if conn is None or conn.transport is None:
-            return None
-        peername = conn.transport.get_extra_info("peername")
-        if peername:
-            return ipaddress.ip_address(peername[0])
-        return None
 
     def _log_tls_info(self, response: aiohttp.ClientResponse, request: Request) -> None:
         conn = response.connection

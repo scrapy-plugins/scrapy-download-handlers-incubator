@@ -122,11 +122,6 @@ class TestHttp11WithCrawler(TestHttpWithCrawlerBase):
 class TestHttps11WithCrawler(TestHttp11WithCrawler):
     is_secure = True
 
-    @pytest.mark.skip(reason="response.certificate is not implemented")
-    @coroutine_test
-    async def test_response_ssl_certificate(self, mockserver: MockServer) -> None:
-        pass
-
 
 class TestHttp11Proxy(NiquestsDownloadHandlerMixin, TestHttpProxyBase):
     @pytest.mark.skip(reason="Hangs, as the test is hacky")

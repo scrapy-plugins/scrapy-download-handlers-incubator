@@ -5,7 +5,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from io import BytesIO
-from typing import TYPE_CHECKING, ClassVar, Generic, NoReturn, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, NoReturn, TypedDict, TypeVar
 from urllib.parse import quote, urlsplit
 
 from scrapy import Request, signals
@@ -48,6 +48,7 @@ class _BaseResponseArgs(TypedDict):
     status: int
     url: str
     headers: Headers
+    certificate: NotRequired[Any]
     ip_address: NotRequired[IPv4Address | IPv6Address | None]
     protocol: str | None
 

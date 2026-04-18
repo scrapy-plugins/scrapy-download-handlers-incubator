@@ -159,12 +159,18 @@ class HttpxDownloadHandler(_Base):
         headers: Headers,
     ) -> _BaseResponseArgs:
         network_stream: AsyncNetworkStream = response.extensions["network_stream"]
-        extra_server_addr = network_stream.get_extra_info("server_addr")
-        ip_address = ipaddress.ip_address(extra_server_addr[0])
+        server_addr = network_stream.get_extra_info("server_addr")
+        ip_address = ipaddress.ip_address(server_addr[0])
+        ssl_object = network_stream.get_extra_info("ssl_object")
+        if isinstance(ssl_object, ssl.SSLObject):
+            cert = ssl_object.getpeercert(binary_form=True)
+        else:
+            cert = None
         return {
             "status": response.status_code,
             "url": request.url,
             "headers": headers,
+            "certificate": cert,
             "ip_address": ip_address,
             "protocol": response.http_version,
         }
