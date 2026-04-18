@@ -49,8 +49,11 @@ pyreqwest = [
 ]
 
 [project.urls]
+Homepage = "https://github.com/scrapy/scrapy-download-handlers-incubator"
 Source = "https://github.com/scrapy/scrapy-download-handlers-incubator"
 Tracker = "https://github.com/scrapy/scrapy-download-handlers-incubator/issues"
+Docs = "https://github.com/scrapy-plugins/scrapy-download-handlers-incubator/blob/master/README.rst"
+"Release notes" = "https://github.com/scrapy-plugins/scrapy-download-handlers-incubator/blob/main/CHANGELOG.rst"
 
 [tool.hatch.build.targets.sdist]
 include = [
