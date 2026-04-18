@@ -56,12 +56,20 @@ Tracker = "https://github.com/scrapy/scrapy-download-handlers-incubator/issues"
 include = [
     "/src",
     "/tests",
+    "/CHANGELOG.rst",
     "/tox.toml",
 ]
 
-# remove when Scrapy 2.15.0 is released
-[tool.hatch.metadata]
-allow-direct-references = true
+[tool.bumpversion]
+commit = true
+tag = true
+tag_name = "{new_version}"
+
+[[tool.bumpversion.files]]
+filename = 'CHANGELOG.rst'
+search = "\\(unreleased\\)$"
+replace = "({now:%Y-%m-%d})"
+regex = true
 
 [tool.coverage.report]
 exclude_also = [
