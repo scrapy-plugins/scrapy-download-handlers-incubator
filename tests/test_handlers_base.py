@@ -1047,6 +1047,10 @@ class TestHttpProxyBase(ABC):
         finally:
             await dh.close()
 
+    @staticmethod
+    def handler_supports_tls_in_tls() -> bool:
+        return True
+
     @coroutine_test
     async def test_download_with_proxy(
         self, proxy_mockserver: ProxyEchoMockServer
@@ -1078,6 +1082,8 @@ class TestHttpProxyBase(ABC):
     ) -> None:
         if NON_EXISTING_RESOLVABLE:
             pytest.skip("Non-existing hosts are resolvable")
+        if self.is_secure and not self.handler_supports_tls_in_tls():
+            pytest.skip("HTTPS proxy to HTTPS destination is not supported")
         http_proxy = proxy_mockserver.url("", is_secure=self.is_secure)
         domain = "https://no-such-domain.nosuch"
         request = Request(domain, meta={"proxy": http_proxy, "download_timeout": 0.2})
@@ -1104,6 +1110,10 @@ class TestMitmProxyBase(ABC):
     @abstractmethod
     def settings_dict(self) -> dict[str, Any] | None:
         raise NotImplementedError
+
+    @staticmethod
+    def handler_supports_tls_in_tls() -> bool:
+        return True
 
     @pytest.mark.parametrize("https_dest", [True, False])
     @coroutine_test
@@ -1132,6 +1142,8 @@ class TestMitmProxyBase(ABC):
         https_dest: bool,
     ) -> None:
         """HTTPS proxy, HTTP or HTTPS destination."""
+        if https_dest and not self.handler_supports_tls_in_tls():
+            pytest.skip("HTTPS proxy to HTTPS destination is not supported")
         crawler = get_crawler(SimpleSpider, self.settings_dict)
         with caplog.at_level(logging.DEBUG):
             await crawler.crawl_async(

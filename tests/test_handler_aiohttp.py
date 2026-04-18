@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -114,6 +115,10 @@ class TestHttp11Proxy(AiohttpDownloadHandlerMixin, TestHttpProxyBase):
 class TestHttps11Proxy(AiohttpDownloadHandlerMixin, TestHttpProxyBase):
     is_secure = True
 
+    @staticmethod
+    def handler_supports_tls_in_tls() -> bool:
+        return sys.version_info >= (3, 11)
+
 
 class TestMitmProxy(TestMitmProxyBase):
     @property
@@ -124,3 +129,7 @@ class TestMitmProxy(TestMitmProxyBase):
                 "https": HANDLER_IMPORT_NAME,
             }
         }
+
+    @staticmethod
+    def handler_supports_tls_in_tls() -> bool:
+        return sys.version_info >= (3, 11)
