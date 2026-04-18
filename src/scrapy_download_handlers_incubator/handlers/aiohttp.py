@@ -77,7 +77,11 @@ class AiohttpDownloadHandler(_Base):
     async def _make_request(
         self, request: Request, timeout: float
     ) -> AsyncIterator[aiohttp.ClientResponse]:
-        proxy = self._extract_proxy(request)
+        proxy_url, proxy_auth_hdr = self._extract_proxy(request)
+        if proxy_url and proxy_auth_hdr:
+            proxy_headers = {"Proxy-Authorization": proxy_auth_hdr}
+        else:
+            proxy_headers = None
         try:
             async with await self._session.request(
                 request.method,
@@ -87,7 +91,8 @@ class AiohttpDownloadHandler(_Base):
                 timeout=aiohttp.ClientTimeout(total=timeout),
                 ssl=self._ssl_context,
                 allow_redirects=False,
-                proxy=proxy,
+                proxy=proxy_url,
+                proxy_headers=proxy_headers,
             ) as response:
                 yield response
         except (TimeoutError, asyncio.TimeoutError) as e:

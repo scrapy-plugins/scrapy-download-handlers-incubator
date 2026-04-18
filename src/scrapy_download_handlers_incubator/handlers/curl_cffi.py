@@ -95,7 +95,7 @@ class CurlCffiDownloadHandler(_Base):
     async def _make_request(  # noqa: PLR0912
         self, request: Request, timeout: float
     ) -> AsyncIterator[curl_cffi.Response]:
-        proxy = self._extract_proxy(request)
+        proxy = self._extract_proxy_url_with_creds(request)
         response: curl_cffi.Response | None = None
         try:
             response = await self._session.request(

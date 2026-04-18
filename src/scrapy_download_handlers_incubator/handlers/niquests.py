@@ -110,7 +110,7 @@ class NiquestsDownloadHandler(_Base):
         for k in list(headers):
             if headers[k] == "":
                 del headers[k]
-        proxy = self._extract_proxy(request)
+        proxy = self._extract_proxy_url_with_creds(request)
         proxies = {"http": proxy, "https": proxy} if proxy else None
         try:
             async with await self._session.request(

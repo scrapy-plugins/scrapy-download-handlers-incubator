@@ -50,6 +50,9 @@ else:
 class HttpxDownloadHandler(_Base):
     def __init__(self, crawler: Crawler):
         super().__init__(crawler)
+        self._verify_certificates: bool = crawler.settings.getbool(
+            "DOWNLOAD_VERIFY_CERTIFICATES"
+        )
         self._enable_h2: bool = crawler.settings.getbool("HTTPX_HTTP2_ENABLED")
         self._ssl_context: ssl.SSLContext = _make_ssl_context(crawler.settings)
         self._bind_host: str | None = self._get_bind_address_host()
@@ -74,16 +77,16 @@ class HttpxDownloadHandler(_Base):
 
     def _make_client(self, proxy_url: str | None = None) -> httpx.AsyncClient:
         if proxy_url:
-            if proxy_url.startswith("https:") and not self.crawler.settings.getbool(
-                "DOWNLOAD_VERIFY_CERTIFICATES"
-            ):
+            if proxy_url.startswith("https:") and not self._verify_certificates:
                 # disable proxy cert verification for test simplification and to match other handlers
                 proxy_ssl_context = make_insecure_ssl_ctx()
             else:
                 proxy_ssl_context = None
+
             proxy = httpx.Proxy(proxy_url, ssl_context=proxy_ssl_context)
         else:
             proxy = None
+
         client = httpx.AsyncClient(
             cookies=NullCookieJar(),
             transport=httpx.AsyncHTTPTransport(
@@ -113,7 +116,7 @@ class HttpxDownloadHandler(_Base):
     async def _make_request(
         self, request: Request, timeout: float
     ) -> AsyncIterator[httpx.Response]:
-        client = self._get_client(self._extract_proxy(request))
+        client = self._get_client(self._extract_proxy_url_with_creds(request))
         try:
             async with client.stream(
                 request.method,

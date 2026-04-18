@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import base64
 import logging
 import time
 from abc import ABC, abstractmethod
 from io import BytesIO
 from typing import TYPE_CHECKING, ClassVar, Generic, NoReturn, TypedDict, TypeVar
+from urllib.parse import quote, urlsplit
 
 from scrapy import Request, signals
 from scrapy.exceptions import (
@@ -73,6 +75,7 @@ class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_Respon
         self._bind_address = normalize_bind_address(
             crawler.settings.get("DOWNLOAD_BIND_ADDRESS")
         )
+        self._proxy_auth_encoding: str = crawler.settings.get("HTTPPROXY_AUTH_ENCODING")
         # these are useful for many handlers but used in different ways by them
         self._pool_size_total: int = crawler.settings.getint("CONCURRENT_REQUESTS")
         self._pool_size_per_host: int = crawler.settings.getint(
@@ -260,8 +263,39 @@ class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_Respon
         raise DownloadCancelledError(warning_msg)
 
     @staticmethod
-    def _extract_proxy(request: Request) -> str | None:
+    def _extract_proxy(request: Request) -> tuple[str | None, str | None]:
+        """Return a tuple of the proxy URL with a scheme and the value of the
+        Proxy-Authorization header.
+
+        This is useful for handlers that take the proxy headers separately.
+        """
         proxy: str | None = request.meta.get("proxy")
-        if proxy:
-            return add_http_if_no_scheme(proxy)
-        return None
+        if not proxy:
+            return None, None
+        proxy = add_http_if_no_scheme(proxy)
+        auth_header: list[bytes] | None = request.headers.pop(
+            b"Proxy-Authorization", None
+        )
+        return proxy, auth_header[0].decode("ascii") if auth_header else None
+
+    def _extract_proxy_url_with_creds(self, request: Request) -> str | None:
+        """Return the proxy URL with the userinfo added based on the
+        Proxy-Authorization header.
+
+        This is useful for handlers that cannot take the proxy headers
+        separately.
+        """
+        proxy_url, auth_header = self._extract_proxy(request)
+        if proxy_url is None or auth_header is None:
+            return proxy_url
+        scheme, token = auth_header.split(" ", 1)
+        if scheme != "Basic":
+            raise ValueError(
+                f"Expected Basic auth in Proxy-Authorization, got {scheme}"
+            )
+        user, password = (
+            base64.b64decode(token).decode(self._proxy_auth_encoding).split(":", 1)
+        )
+        parts = urlsplit(proxy_url)
+        netloc = f"{quote(user)}:{quote(password)}@{parts.netloc}"
+        return parts._replace(netloc=netloc).geturl()
