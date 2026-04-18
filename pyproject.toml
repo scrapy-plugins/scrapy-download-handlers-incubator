@@ -49,8 +49,11 @@ pyreqwest = [
 ]
 
 [project.urls]
+Homepage = "https://github.com/scrapy/scrapy-download-handlers-incubator"
 Source = "https://github.com/scrapy/scrapy-download-handlers-incubator"
 Tracker = "https://github.com/scrapy/scrapy-download-handlers-incubator/issues"
+Docs = "https://github.com/scrapy-plugins/scrapy-download-handlers-incubator/blob/master/README.rst"
+"Release notes" = "https://github.com/scrapy-plugins/scrapy-download-handlers-incubator/blob/main/CHANGELOG.rst"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -75,6 +78,7 @@ regex = true
 exclude_also = [
     "@(abc\\.)?abstractmethod",
 ]
+
 [tool.coverage.run]
 branch = true
 
@@ -88,7 +92,10 @@ source = [
 strict = true
 
 [[tool.mypy.overrides]]
-module = "tests.*"
+module = [
+    "tests.spiders",
+    "tests.mockserver.*",
+]
 allow_untyped_defs = true
 check_untyped_defs = false
 
@@ -100,7 +107,10 @@ follow_imports = "skip"
 module = "twisted.internet.reactor"
 follow_imports = "skip"
 
-[tool.pytest]
+# [tool.pytest] requires 9.0.0+, but the py-pinned-noreactor env can't use it
+# due to mutual version restrictions between pytest, pytest-asyncio, mitmproxy
+# and typing-extensions.
+[tool.pytest.ini_options]
 addopts = ["--import-mode=importlib"]
 filterwarnings = [
     "ignore::DeprecationWarning:twisted.web.static",

@@ -44,6 +44,6 @@ def mitm_proxy_server_https(monkeypatch: pytest.MonkeyPatch) -> Generator[MitmPr
         proxy.stop()
 
 
-def pytest_configure(config):
+def pytest_configure(config: pytest.Config) -> None:
     # Needed on Windows to switch from proactor to selector for Twisted reactor compatibility.
     set_asyncio_event_loop_policy()

@@ -1,3 +1,31 @@
+===================================
+scrapy-download-handlers-incubator
+===================================
+
+.. image:: https://img.shields.io/pypi/v/scrapy-download-handlers-incubator.svg
+   :target: https://pypi.org/project/scrapy-download-handlers-incubator/
+   :alt: PyPI version
+
+.. image:: https://img.shields.io/pypi/pyversions/scrapy-download-handlers-incubator.svg
+   :target: https://pypi.org/project/scrapy-download-handlers-incubator/
+   :alt: Supported Python versions
+
+.. image:: https://github.com/scrapy/scrapy-download-handlers-incubator/actions/workflows/tests-ubuntu.yml/badge.svg
+   :target: https://github.com/scrapy/scrapy-download-handlers-incubator/actions/workflows/tests-ubuntu.yml
+   :alt: Tests - Ubuntu
+
+.. image:: https://github.com/scrapy/scrapy-download-handlers-incubator/actions/workflows/tests-macos.yml/badge.svg
+   :target: https://github.com/scrapy/scrapy-download-handlers-incubator/actions/workflows/tests-macos.yml
+   :alt: Tests - macOS
+
+.. image:: https://github.com/scrapy/scrapy-download-handlers-incubator/actions/workflows/tests-windows.yml/badge.svg
+   :target: https://github.com/scrapy/scrapy-download-handlers-incubator/actions/workflows/tests-windows.yml
+   :alt: Tests - Windows
+
+.. image:: https://codecov.io/gh/scrapy/scrapy-download-handlers-incubator/branch/main/graph/badge.svg
+   :target: https://codecov.io/gh/scrapy/scrapy-download-handlers-incubator
+   :alt: Coverage
+
 Overview
 ========
 
@@ -9,9 +37,8 @@ but here they are provided as-is and no support or stability promises are
 given. The documentation, including limitations and unsupported features, is
 also provided as-is and may be incomplete.
 
-As this code may intentionally use private Scrapy APIs, it specifies a tight
-dependency on Scrapy. Currently only the unreleased 2.15.0 version is
-supported.
+As this code intentionally uses private Scrapy APIs, it specifies a tight
+dependency on Scrapy. This version of the package only supports Scrapy 2.15.x.
 
 .. _Scrapy: https://scrapy.org/
 .. _Scrapy download handler: https://docs.scrapy.org/en/latest/topics/download-handlers.html
