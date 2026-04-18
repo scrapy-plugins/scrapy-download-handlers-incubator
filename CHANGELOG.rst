@@ -2,7 +2,7 @@
 Changelog
 =========
 
-0.1.1 (unreleased)
+0.1.1 (2026-04-19)
 ------------------
 
 * Fix the README line that says which Scrapy versions are supported.

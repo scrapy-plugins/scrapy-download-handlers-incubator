@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "scrapy-download-handlers-incubator"
-version = "0.1.0"
+version = "0.1.1"
 description = "Incubator for Scrapy download handlers"
 authors = [{ name = "Scrapy developers", email = "opensource@zyte.com" }]
 maintainers = [{ name = "Scrapy developers", email = "opensource@zyte.com" }]
