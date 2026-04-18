@@ -37,9 +37,8 @@ but here they are provided as-is and no support or stability promises are
 given. The documentation, including limitations and unsupported features, is
 also provided as-is and may be incomplete.
 
-As this code may intentionally use private Scrapy APIs, it specifies a tight
-dependency on Scrapy. Currently only the unreleased 2.15.0 version is
-supported.
+As this code intentionally uses private Scrapy APIs, it specifies a tight
+dependency on Scrapy. This version of the package only supports Scrapy 2.15.x.
 
 .. _Scrapy: https://scrapy.org/
 .. _Scrapy download handler: https://docs.scrapy.org/en/latest/topics/download-handlers.html
