@@ -17,12 +17,13 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
-from scrapy.utils.ssl import _log_sslobj_debug_info, _make_ssl_context
+from scrapy.utils.ssl import _make_ssl_context
 
 from scrapy_download_handlers_incubator.handlers._base import (
     BaseIncubatorDownloadHandler,
     _BaseResponseArgs,
 )
+from scrapy_download_handlers_incubator.utils import log_sslobj_debug_info
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -159,7 +160,7 @@ class AiohttpDownloadHandler(_Base):
             return
         ssl_object = conn.transport.get_extra_info("ssl_object")
         if isinstance(ssl_object, ssl.SSLObject):
-            _log_sslobj_debug_info(ssl_object)
+            log_sslobj_debug_info(ssl_object)
 
     @staticmethod
     def _iter_body_chunks(response: aiohttp.ClientResponse) -> AsyncIterator[bytes]:

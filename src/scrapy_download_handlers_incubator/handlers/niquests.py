@@ -187,6 +187,10 @@ class NiquestsDownloadHandler(_Base):
                 f" using protocol {conn_info.tls_version.name},"
                 f" cipher {conn_info.cipher}"
             )
+            if cert := conn_info.certificate_dict:
+                logger.debug(
+                    f"SSL connection certificate: issuer {cert['issuer']}, subject {cert['subject']}"
+                )
 
     async def close(self) -> None:
         await self._session.close()

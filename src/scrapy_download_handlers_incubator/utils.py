@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import logging
 import ssl
 from http.cookiejar import Cookie, CookieJar
 from typing import TYPE_CHECKING
 
+from scrapy.utils.ssl import _log_sslobj_debug_info
+
 if TYPE_CHECKING:
     from http.client import HTTPResponse
     from urllib.request import Request as ULRequest
+
+logger = logging.getLogger(__name__)
 
 
 class NullCookieJar(CookieJar):  # pragma: no cover
@@ -29,3 +34,12 @@ def make_insecure_ssl_ctx() -> ssl.SSLContext:
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
     return ctx
+
+
+def log_sslobj_debug_info(sslobj: ssl.SSLObject) -> None:
+    _log_sslobj_debug_info(sslobj)
+    if cert := sslobj.getpeercert():
+        # Not available without certificate verification
+        logger.debug(
+            f"SSL connection certificate: issuer {cert['issuer']}, subject {cert['subject']}"
+        )

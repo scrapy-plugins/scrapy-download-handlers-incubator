@@ -16,7 +16,7 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
-from scrapy.utils.ssl import _log_sslobj_debug_info, _make_ssl_context
+from scrapy.utils.ssl import _make_ssl_context
 
 from scrapy_download_handlers_incubator.handlers._base import (
     BaseIncubatorDownloadHandler,
@@ -24,6 +24,7 @@ from scrapy_download_handlers_incubator.handlers._base import (
 )
 from scrapy_download_handlers_incubator.utils import (
     NullCookieJar,
+    log_sslobj_debug_info,
     make_insecure_ssl_ctx,
 )
 
@@ -182,7 +183,7 @@ class HttpxDownloadHandler(_Base):
         network_stream: AsyncNetworkStream = response.extensions["network_stream"]
         extra_ssl_object = network_stream.get_extra_info("ssl_object")
         if isinstance(extra_ssl_object, ssl.SSLObject):
-            _log_sslobj_debug_info(extra_ssl_object)
+            log_sslobj_debug_info(extra_ssl_object)
 
     async def close(self) -> None:
         await self._default_client.aclose()
