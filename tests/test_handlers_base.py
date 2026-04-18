@@ -1105,43 +1105,73 @@ class TestMitmProxyBase(ABC):
     def settings_dict(self) -> dict[str, Any] | None:
         raise NotImplementedError
 
-    is_secure = False
-
+    @pytest.mark.parametrize("https_dest", [True, False])
     @coroutine_test
-    async def test_https_connect_tunnel(
+    async def test_http_proxy(
         self,
         caplog: pytest.LogCaptureFixture,
         mockserver: MockServer,
         mitm_proxy_server: MitmProxy,
+        https_dest: bool,
     ) -> None:
+        """HTTP proxy, HTTP or HTTPS destination."""
         crawler = get_crawler(SimpleSpider, self.settings_dict)
         with caplog.at_level(logging.DEBUG):
-            await crawler.crawl_async(mockserver.url("/status?n=200", is_secure=True))
+            await crawler.crawl_async(
+                mockserver.url("/status?n=200", is_secure=https_dest)
+            )
         self._assert_got_response_code(200, caplog.text)
 
+    @pytest.mark.parametrize("https_dest", [True, False])
     @coroutine_test
-    async def test_https_tunnel_auth_error(
+    async def test_https_proxy(
+        self,
+        caplog: pytest.LogCaptureFixture,
+        mockserver: MockServer,
+        mitm_proxy_server_https: MitmProxy,
+        https_dest: bool,
+    ) -> None:
+        """HTTPS proxy, HTTP or HTTPS destination."""
+        crawler = get_crawler(SimpleSpider, self.settings_dict)
+        with caplog.at_level(logging.DEBUG):
+            await crawler.crawl_async(
+                mockserver.url("/status?n=200", is_secure=https_dest)
+            )
+        self._assert_got_response_code(200, caplog.text)
+
+    @pytest.mark.parametrize("https_dest", [True, False])
+    @coroutine_test
+    async def test_http_proxy_auth_error(
         self,
         caplog: pytest.LogCaptureFixture,
         mockserver: MockServer,
         mitm_proxy_server: MitmProxy,
+        https_dest: bool,
     ) -> None:
-        os.environ["https_proxy"] = wrong_credentials(os.environ["https_proxy"])
+        """HTTP proxy, HTTP or HTTPS destination, wrong proxy creds."""
+        envvar = "https_proxy" if https_dest else "http_proxy"
+        os.environ[envvar] = wrong_credentials(os.environ[envvar])
         crawler = get_crawler(SimpleSpider, self.settings_dict)
         with caplog.at_level(logging.DEBUG):
-            await crawler.crawl_async(mockserver.url("/status?n=200", is_secure=True))
+            await crawler.crawl_async(
+                mockserver.url("/status?n=200", is_secure=https_dest)
+            )
         # The proxy returns a 407 error code but it does not reach the client;
         # he just sees an exception.
         self._assert_got_auth_exception(caplog.text)
 
+    @pytest.mark.parametrize("https_dest", [True, False])
     @coroutine_test
-    async def test_https_tunnel_without_leak_proxy_authorization_header(
+    async def test_dont_leak_proxy_authorization_header(
         self,
         caplog: pytest.LogCaptureFixture,
         mockserver: MockServer,
         mitm_proxy_server: MitmProxy,
+        https_dest: bool,
     ) -> None:
-        request = Request(mockserver.url("/echo", is_secure=True))
+        """HTTP proxy, HTTP or HTTPS destination. Check that the auth header
+        is not sent to the destination."""
+        request = Request(mockserver.url("/echo", is_secure=https_dest))
         crawler = get_crawler(SingleRequestSpider, self.settings_dict)
         with caplog.at_level(logging.DEBUG):
             await crawler.crawl_async(seed=request)
