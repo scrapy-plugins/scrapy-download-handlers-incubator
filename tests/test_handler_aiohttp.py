@@ -38,7 +38,15 @@ class AiohttpDownloadHandlerMixin:
         return AiohttpDownloadHandler
 
 
-HANDLER_IMPORT_NAME = "scrapy_download_handlers_incubator.AiohttpDownloadHandler"
+class AiohttpDownloadHandlerSettingsMixin:
+    @property
+    def settings_dict(self) -> dict[str, Any] | None:
+        return {
+            "DOWNLOAD_HANDLERS": {
+                "http": "scrapy_download_handlers_incubator.AiohttpDownloadHandler",
+                "https": "scrapy_download_handlers_incubator.AiohttpDownloadHandler",
+            }
+        }
 
 
 class TestHttp11(AiohttpDownloadHandlerMixin, TestHttp11Base):
@@ -78,16 +86,9 @@ class TestHttps11CustomCiphers(AiohttpDownloadHandlerMixin, TestHttpsCustomCiphe
     pass
 
 
-class TestHttp11WithCrawler(TestHttpWithCrawlerBase):
-    @property
-    def settings_dict(self) -> dict[str, Any] | None:
-        return {
-            "DOWNLOAD_HANDLERS": {
-                "http": HANDLER_IMPORT_NAME,
-                "https": HANDLER_IMPORT_NAME,
-            }
-        }
-
+class TestHttp11WithCrawler(
+    AiohttpDownloadHandlerSettingsMixin, TestHttpWithCrawlerBase
+):
     @pytest.mark.skip(reason="response.ip_address is not available for short responses")
     @coroutine_test
     async def test_response_ip_address(self, mockserver: MockServer) -> None:
@@ -122,16 +123,7 @@ class TestHttps11Proxy(AiohttpDownloadHandlerMixin, TestHttpProxyBase):
         return sys.version_info >= (3, 11)
 
 
-class TestMitmProxy(TestMitmProxyBase):
-    @property
-    def settings_dict(self) -> dict[str, Any] | None:
-        return {
-            "DOWNLOAD_HANDLERS": {
-                "http": HANDLER_IMPORT_NAME,
-                "https": HANDLER_IMPORT_NAME,
-            }
-        }
-
+class TestMitmProxy(AiohttpDownloadHandlerSettingsMixin, TestMitmProxyBase):
     @staticmethod
     def handler_supports_tls_in_tls() -> bool:
         return sys.version_info >= (3, 11)

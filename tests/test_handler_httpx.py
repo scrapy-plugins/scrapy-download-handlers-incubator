@@ -40,7 +40,15 @@ class HttpxDownloadHandlerMixin:
         return HttpxDownloadHandler
 
 
-HANDLER_IMPORT_NAME = "scrapy_download_handlers_incubator.HttpxDownloadHandler"
+class HttpxDownloadHandlerSettingsMixin:
+    @property
+    def settings_dict(self) -> dict[str, Any] | None:
+        return {
+            "DOWNLOAD_HANDLERS": {
+                "http": "scrapy_download_handlers_incubator.HttpxDownloadHandler",
+                "https": "scrapy_download_handlers_incubator.HttpxDownloadHandler",
+            }
+        }
 
 
 class TestHttp11(HttpxDownloadHandlerMixin, TestHttp11Base):
@@ -121,15 +129,8 @@ class TestHttps11CustomCiphers(HttpxDownloadHandlerMixin, TestHttpsCustomCiphers
     pass
 
 
-class TestHttp11WithCrawler(TestHttpWithCrawlerBase):
-    @property
-    def settings_dict(self) -> dict[str, Any] | None:
-        return {
-            "DOWNLOAD_HANDLERS": {
-                "http": HANDLER_IMPORT_NAME,
-                "https": HANDLER_IMPORT_NAME,
-            }
-        }
+class TestHttp11WithCrawler(HttpxDownloadHandlerSettingsMixin, TestHttpWithCrawlerBase):
+    pass
 
 
 class TestHttps11WithCrawler(TestHttp11WithCrawler):
@@ -140,17 +141,10 @@ class TestHttp11Proxy(HttpxDownloadHandlerMixin, TestHttpProxyBase):
     expected_http_proxy_request_body = b"http://example.com/"
 
 
-class TestHttps11Proxy(HttpxDownloadHandlerMixin, TestHttpProxyBase):
+class TestHttps11Proxy(TestHttp11Proxy):
     is_secure = True
     expected_http_proxy_request_body = TestHttp11Proxy.expected_http_proxy_request_body
 
 
-class TestMitmProxy(TestMitmProxyBase):
-    @property
-    def settings_dict(self) -> dict[str, Any] | None:
-        return {
-            "DOWNLOAD_HANDLERS": {
-                "http": HANDLER_IMPORT_NAME,
-                "https": HANDLER_IMPORT_NAME,
-            }
-        }
+class TestMitmProxy(HttpxDownloadHandlerSettingsMixin, TestMitmProxyBase):
+    pass

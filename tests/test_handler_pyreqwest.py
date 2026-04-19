@@ -36,7 +36,15 @@ class PyreqwestDownloadHandlerMixin:
         return PyreqwestDownloadHandler
 
 
-HANDLER_IMPORT_NAME = "scrapy_download_handlers_incubator.PyreqwestDownloadHandler"
+class PyreqwestDownloadHandlerSettingsMixin:
+    @property
+    def settings_dict(self) -> dict[str, Any] | None:
+        return {
+            "DOWNLOAD_HANDLERS": {
+                "http": "scrapy_download_handlers_incubator.PyreqwestDownloadHandler",
+                "https": "scrapy_download_handlers_incubator.PyreqwestDownloadHandler",
+            }
+        }
 
 
 class TestHttp11(PyreqwestDownloadHandlerMixin, TestHttp11Base):
@@ -133,16 +141,9 @@ class TestHttps11InvalidDNSPattern(
 # class TestHttps11CustomCiphers
 
 
-class TestHttp11WithCrawler(TestHttpWithCrawlerBase):
-    @property
-    def settings_dict(self) -> dict[str, Any] | None:
-        return {
-            "DOWNLOAD_HANDLERS": {
-                "http": HANDLER_IMPORT_NAME,
-                "https": HANDLER_IMPORT_NAME,
-            }
-        }
-
+class TestHttp11WithCrawler(
+    PyreqwestDownloadHandlerSettingsMixin, TestHttpWithCrawlerBase
+):
     @pytest.mark.skip(reason="response.ip_address is not implemented")
     @coroutine_test
     async def test_response_ip_address(self, mockserver: MockServer) -> None:
