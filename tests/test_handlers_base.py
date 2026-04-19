@@ -36,6 +36,7 @@ from scrapy.utils.test import get_crawler
 from twisted.internet.ssl import Certificate
 from twisted.python.failure import Failure
 
+from tests.mockserver.mitm_proxy import MitmProxy, wrong_credentials
 from tests.mockserver.proxy_echo import ProxyEchoMockServer
 from tests.mockserver.simple_https import SimpleMockServer
 from tests.spiders import (
@@ -48,7 +49,6 @@ from tests.spiders import (
 )
 from tests.utils import NON_EXISTING_RESOLVABLE
 from tests.utils.decorators import coroutine_test
-from tests.utils.proxy import MitmProxy, wrong_credentials
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Generator
@@ -1131,12 +1131,14 @@ class TestMitmProxyBase(ABC):
         https_dest: bool,
     ) -> None:
         """HTTP proxy, HTTP or HTTPS destination."""
-        crawler = get_crawler(SimpleSpider, self.settings_dict)
+        crawler = get_crawler(SingleRequestSpider, self.settings_dict)
         with caplog.at_level(logging.DEBUG):
             await crawler.crawl_async(
-                mockserver.url("/status?n=200", is_secure=https_dest)
+                seed=mockserver.url("/status?n=200", is_secure=https_dest)
             )
+        assert isinstance(crawler.spider, SingleRequestSpider)
         self._assert_got_response_code(200, caplog.text)
+        assert b"X-Via-Mitmproxy" in crawler.spider.meta["responses"][0].headers
 
     @pytest.mark.parametrize("https_dest", [True, False])
     @coroutine_test
@@ -1150,12 +1152,14 @@ class TestMitmProxyBase(ABC):
         """HTTPS proxy, HTTP or HTTPS destination."""
         if https_dest and not self.handler_supports_tls_in_tls():
             pytest.skip("HTTPS proxy to HTTPS destination is not supported")
-        crawler = get_crawler(SimpleSpider, self.settings_dict)
+        crawler = get_crawler(SingleRequestSpider, self.settings_dict)
         with caplog.at_level(logging.DEBUG):
             await crawler.crawl_async(
-                mockserver.url("/status?n=200", is_secure=https_dest)
+                seed=mockserver.url("/status?n=200", is_secure=https_dest)
             )
+        assert isinstance(crawler.spider, SingleRequestSpider)
         self._assert_got_response_code(200, caplog.text)
+        assert b"X-Via-Mitmproxy" in crawler.spider.meta["responses"][0].headers
 
     @pytest.mark.parametrize("https_dest", [True, False])
     @coroutine_test
@@ -1196,6 +1200,7 @@ class TestMitmProxyBase(ABC):
             await crawler.crawl_async(seed=request)
         assert isinstance(crawler.spider, SingleRequestSpider)
         self._assert_got_response_code(200, caplog.text)
+        assert b"X-Via-Mitmproxy" in crawler.spider.meta["responses"][0].headers
         echo = json.loads(crawler.spider.meta["responses"][0].text)
         assert "Proxy-Authorization" not in echo["headers"]
 

@@ -29,6 +29,8 @@ sys.exit(mitmdump())
             "--set",
             f"confdir={cert_path}",
             "--ssl-insecure",
+            "-s",
+            str(Path(__file__).with_name("mitm_proxy_addon.py")),
         ]
         self.proc: Popen[str] = Popen(
             [
@@ -42,12 +44,13 @@ sys.exit(mitmdump())
             text=True,
         )
         assert self.proc.stdout is not None
-        line = self.proc.stdout.readline()
-        m = re.search(r"listening at (?:http://)?([^:]+:\d+)", line)
-        if not m:
-            raise RuntimeError(f"Failed to parse mitmdump output: {line}")
-        host_port = m.group(1)
-        return f"http://{self.auth_user}:{self.auth_pass}@{host_port}"
+        for line in self.proc.stdout:
+            m = re.search(r"listening at (?:http://)?([^:]+:\d+)", line)
+            if m:
+                host_port = m.group(1)
+                return f"http://{self.auth_user}:{self.auth_pass}@{host_port}"
+        self.stop()
+        raise RuntimeError(f"Failed to parse mitmdump output: {line}")
 
     def stop(self) -> None:
         self.proc.kill()

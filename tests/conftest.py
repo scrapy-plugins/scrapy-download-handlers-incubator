@@ -6,7 +6,7 @@ import pytest
 from scrapy.utils.reactor import set_asyncio_event_loop_policy
 
 from tests.mockserver.http import MockServer
-from tests.utils.proxy import MitmProxy
+from tests.mockserver.mitm_proxy import MitmProxy
 
 if TYPE_CHECKING:
     from collections.abc import Generator
