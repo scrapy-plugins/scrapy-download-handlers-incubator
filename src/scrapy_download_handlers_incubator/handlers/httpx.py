@@ -100,7 +100,7 @@ class HttpxDownloadHandler(_Base):
             ),
         )
         # https://github.com/encode/httpx/discussions/1566
-        for header_name in ("accept", "accept-encoding", "connection", "user-agent"):
+        for header_name in ("accept", "accept-encoding", "user-agent"):
             client.headers.pop(header_name, None)
         return client
 
