@@ -16,6 +16,7 @@ deps = [
     "pytest-xdist>=3.7.0",
     "Twisted[http2]>=25.5.0",
     "hypercorn[h3]>=0.18.0",
+    "starlette>=1.0.0",
     { replace = "if", condition = "not factor.noreactor", then = ["pytest-twisted"], extend = true },
     { replace = "if", condition = "factor.noreactor", then = ["pytest-asyncio"], extend = true },
     { replace = "if", condition = "factor.pinned", then = [

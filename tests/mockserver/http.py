@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 from pathlib import Path
 
-from .asgi_app import app
+from hypercorn.asyncio import wrap_app
+from hypercorn.asyncio.run import worker_serve
+from hypercorn.asyncio.tcp_server import TCPServer
+from hypercorn.config import Config
+
 from .http_base import BaseMockServer
+from .starlette_app import app, current_writer
 
 
 class MockServer(BaseMockServer):
@@ -22,13 +28,6 @@ def main() -> None:
     parser.add_argument("--listen-h3", action="store_true")
     parser.set_defaults(listen_http=True, listen_https=True, listen_h3=False)
     args = parser.parse_args()
-
-    from hypercorn.asyncio import wrap_app
-    from hypercorn.asyncio.run import worker_serve
-    from hypercorn.asyncio.tcp_server import TCPServer
-    from hypercorn.config import Config
-
-    from .asgi_app import current_writer
 
     # Expose the per-connection writer to ASGI handlers via a contextvar, so
     # /drop?abort=1 can force a TCP RST. TaskGroup children inherit the context.
@@ -78,10 +77,8 @@ def main() -> None:
             sockets=sockets,
         )
 
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(_run())
-    except KeyboardInterrupt:
-        pass
 
 
 if __name__ == "__main__":
