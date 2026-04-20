@@ -37,7 +37,15 @@ class CurlCffiDownloadHandlerMixin:
         return CurlCffiDownloadHandler
 
 
-HANDLER_IMPORT_NAME = "scrapy_download_handlers_incubator.CurlCffiDownloadHandler"
+class CurlCffiDownloadHandlerSettingsMixin:
+    @property
+    def settings_dict(self) -> dict[str, Any] | None:
+        return {
+            "DOWNLOAD_HANDLERS": {
+                "http": "scrapy_download_handlers_incubator.CurlCffiDownloadHandler",
+                "https": "scrapy_download_handlers_incubator.CurlCffiDownloadHandler",
+            }
+        }
 
 
 class TestHttp11(CurlCffiDownloadHandlerMixin, TestHttp11Base):
@@ -107,15 +115,10 @@ class TestHttps11InvalidDNSPattern(
 # class TestHttps11CustomCiphers
 
 
-class TestHttp11WithCrawler(TestHttpWithCrawlerBase):
-    @property
-    def settings_dict(self) -> dict[str, Any] | None:
-        return {
-            "DOWNLOAD_HANDLERS": {
-                "http": HANDLER_IMPORT_NAME,
-                "https": HANDLER_IMPORT_NAME,
-            }
-        }
+class TestHttp11WithCrawler(
+    CurlCffiDownloadHandlerSettingsMixin, TestHttpWithCrawlerBase
+):
+    pass
 
 
 class TestHttps11WithCrawler(TestHttp11WithCrawler):
@@ -136,12 +139,5 @@ class TestHttps11Proxy(CurlCffiDownloadHandlerMixin, TestHttpProxyBase):
     expected_http_proxy_request_body = TestHttp11Proxy.expected_http_proxy_request_body
 
 
-class TestMitmProxy(TestMitmProxyBase):
-    @property
-    def settings_dict(self) -> dict[str, Any] | None:
-        return {
-            "DOWNLOAD_HANDLERS": {
-                "http": HANDLER_IMPORT_NAME,
-                "https": HANDLER_IMPORT_NAME,
-            }
-        }
+class TestMitmProxy(CurlCffiDownloadHandlerSettingsMixin, TestMitmProxyBase):
+    pass

@@ -37,7 +37,15 @@ class NiquestsDownloadHandlerMixin:
         return NiquestsDownloadHandler
 
 
-HANDLER_IMPORT_NAME = "scrapy_download_handlers_incubator.NiquestsDownloadHandler"
+class NiquestsDownloadHandlerSettingsMixin:
+    @property
+    def settings_dict(self) -> dict[str, Any] | None:
+        return {
+            "DOWNLOAD_HANDLERS": {
+                "http": "scrapy_download_handlers_incubator.NiquestsDownloadHandler",
+                "https": "scrapy_download_handlers_incubator.NiquestsDownloadHandler",
+            }
+        }
 
 
 class TestHttp11(NiquestsDownloadHandlerMixin, TestHttp11Base):
@@ -108,15 +116,10 @@ class TestHttps11InvalidDNSPattern(
 # class TestHttps11CustomCiphers
 
 
-class TestHttp11WithCrawler(TestHttpWithCrawlerBase):
-    @property
-    def settings_dict(self) -> dict[str, Any] | None:
-        return {
-            "DOWNLOAD_HANDLERS": {
-                "http": HANDLER_IMPORT_NAME,
-                "https": HANDLER_IMPORT_NAME,
-            }
-        }
+class TestHttp11WithCrawler(
+    NiquestsDownloadHandlerSettingsMixin, TestHttpWithCrawlerBase
+):
+    pass
 
 
 class TestHttps11WithCrawler(TestHttp11WithCrawler):
@@ -137,12 +140,5 @@ class TestHttps11Proxy(NiquestsDownloadHandlerMixin, TestHttpProxyBase):
         pass
 
 
-class TestMitmProxy(TestMitmProxyBase):
-    @property
-    def settings_dict(self) -> dict[str, Any] | None:
-        return {
-            "DOWNLOAD_HANDLERS": {
-                "http": HANDLER_IMPORT_NAME,
-                "https": HANDLER_IMPORT_NAME,
-            }
-        }
+class TestMitmProxy(NiquestsDownloadHandlerSettingsMixin, TestMitmProxyBase):
+    pass
