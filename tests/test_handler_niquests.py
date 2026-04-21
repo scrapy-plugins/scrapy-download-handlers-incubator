@@ -63,7 +63,7 @@ class TestHttps11(NiquestsDownloadHandlerMixin, TestHttps11Base):
 
 
 class TestHttps2(TestHttps11):
-    HTTP2_DATALOSS_SKIP_REASON = "Content-Length mismatch raises InvalidBodyLengthError"
+    http2 = True
 
     default_handler_settings: ClassVar[dict[str, Any]] = {
         "NIQUESTS_HTTP2_ENABLED": True,
@@ -76,20 +76,29 @@ class TestHttps2(TestHttps11):
             response = await download_handler.download_request(request)
         assert response.protocol == "HTTP/2.0"
 
+    @pytest.mark.skip(
+        reason="InvalidBodyLengthError can be raised before reading the body"
+    )
     def test_download_cause_data_loss(self) -> None:  # type: ignore[override]
-        pytest.skip(self.HTTP2_DATALOSS_SKIP_REASON)
+        pass
 
+    @pytest.mark.skip(
+        reason="InvalidBodyLengthError can be raised before reading the body"
+    )
     def test_download_cause_data_loss_double_warning(self) -> None:  # type: ignore[override]
-        pytest.skip(self.HTTP2_DATALOSS_SKIP_REASON)
+        pass
 
-    def test_download_allow_data_loss(self) -> None:  # type: ignore[override]
-        pytest.skip(self.HTTP2_DATALOSS_SKIP_REASON)
+    @pytest.mark.skip(
+        reason="InvalidBodyLengthError can be raised before reading the body"
+    )
+    def test_download_allow_data_loss_broken(self) -> None:  # type: ignore[override]
+        pass
 
+    @pytest.mark.skip(
+        reason="InvalidBodyLengthError can be raised before reading the body"
+    )
     def test_download_allow_data_loss_via_setting(self) -> None:  # type: ignore[override]
-        pytest.skip(self.HTTP2_DATALOSS_SKIP_REASON)
-
-    def test_download_conn_aborted(self) -> None:  # type: ignore[override]
-        pytest.skip(self.HTTP2_DATALOSS_SKIP_REASON)
+        pass
 
 
 class TestSimpleHttps(NiquestsDownloadHandlerMixin, TestSimpleHttpsBase):

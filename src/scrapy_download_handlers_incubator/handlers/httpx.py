@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 
 try:
+    import h2.exceptions
     import httpx
 except ImportError:
     httpx = None  # type: ignore[assignment]
@@ -181,9 +182,11 @@ class HttpxDownloadHandler(_Base):
 
     @staticmethod
     def _is_dataloss_exception(exc: Exception) -> bool:
-        return isinstance(
-            exc, httpx.RemoteProtocolError
-        ) and "peer closed connection without sending complete message body" in str(exc)
+        return (
+            isinstance(exc, httpx.RemoteProtocolError)
+            and "peer closed connection without sending complete message body"
+            in str(exc)
+        ) or isinstance(exc, h2.exceptions.InvalidBodyLengthError)
 
     def _log_tls_info(self, response: httpx.Response, request: Request) -> None:
         network_stream: AsyncNetworkStream = response.extensions["network_stream"]

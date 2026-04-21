@@ -140,7 +140,10 @@ class CurlCffiDownloadHandler(_Base):
                     | curl_cffi.requests.exceptions.ProxyError
                 ):
                     raise DownloadConnectionRefusedError(str(e)) from e
-                case curl_cffi.requests.exceptions.RequestException:
+                case (
+                    curl_cffi.requests.exceptions.RequestException
+                    | curl_cffi.requests.exceptions.HTTPError
+                ):
                     raise DownloadFailedError(str(e)) from e
                 case _:
                     raise
@@ -188,10 +191,12 @@ class CurlCffiDownloadHandler(_Base):
     @staticmethod
     def _is_dataloss_exception(exc: Exception) -> bool:
         # mapped to curl_cffi.requests.exceptions.IncompleteRead
-        return (
-            isinstance(exc, curl_cffi.requests.exceptions.RequestException)
-            and exc.code == curl_cffi.const.CurlECode.PARTIAL_FILE
-        )
+        return isinstance(
+            exc, curl_cffi.requests.exceptions.RequestException
+        ) and exc.code in {
+            curl_cffi.const.CurlECode.PARTIAL_FILE,
+            curl_cffi.const.CurlECode.HTTP2_STREAM,
+        }
 
     async def close(self) -> None:
         await self._session.close()
