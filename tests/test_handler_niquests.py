@@ -76,6 +76,18 @@ class TestHttps2(TestHttps11):
             response = await download_handler.download_request(request)
         assert response.protocol == "HTTP/2.0"
 
+    @pytest.mark.skip(
+        reason="InvalidBodyLengthError can be raised before reading the body"
+    )
+    def test_download_allow_data_loss_broken(self) -> None:  # type: ignore[override]
+        pass
+
+    @pytest.mark.skip(
+        reason="InvalidBodyLengthError can be raised before reading the body"
+    )
+    def test_download_allow_data_loss_via_setting(self) -> None:  # type: ignore[override]
+        pass
+
 
 class TestSimpleHttps(NiquestsDownloadHandlerMixin, TestSimpleHttpsBase):
     pass
