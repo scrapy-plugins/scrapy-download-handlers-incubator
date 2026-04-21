@@ -528,7 +528,7 @@ class TestHttpBase(ABC):
 
 
 class TestHttp11Base(TestHttpBase):
-    """HTTP 1.1 test case"""
+    http2: bool = False
 
     @coroutine_test
     async def test_download_without_maxsize_limit(self, mockserver: MockServer) -> None:
@@ -645,12 +645,9 @@ class TestHttp11Base(TestHttpBase):
             response = await download_handler.download_request(request)
         assert response.body == b"chunked content\n"
 
-    @pytest.mark.parametrize("url", ["broken", "broken-chunked"])
     @coroutine_test
-    async def test_download_cause_data_loss(
-        self, url: str, mockserver: MockServer
-    ) -> None:
-        request = Request(mockserver.url(f"/{url}", is_secure=self.is_secure))
+    async def test_download_cause_data_loss(self, mockserver: MockServer) -> None:
+        request = Request(mockserver.url("/broken", is_secure=self.is_secure))
         async with self.get_dh() as download_handler:
             with pytest.raises(ResponseDataLossError):
                 await download_handler.download_request(request)
@@ -670,25 +667,39 @@ class TestHttp11Base(TestHttpBase):
             # no repeated warning
             assert "Got data loss" not in caplog.text
 
-    @pytest.mark.parametrize("url", ["broken", "broken-chunked"])
     @coroutine_test
-    async def test_download_allow_data_loss(
-        self, url: str, mockserver: MockServer
+    async def test_download_allow_data_loss_broken(
+        self, mockserver: MockServer
     ) -> None:
         request = Request(
-            mockserver.url(f"/{url}", is_secure=self.is_secure),
+            mockserver.url("/broken", is_secure=self.is_secure),
             meta={"download_fail_on_dataloss": False},
         )
         async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
         assert response.flags == ["dataloss"]
+        assert response.text == "partial"
 
-    @pytest.mark.parametrize("url", ["broken", "broken-chunked"])
+    @coroutine_test
+    async def test_download_allow_data_loss_broken_chunked(
+        self, mockserver: MockServer
+    ) -> None:
+        if self.http2:
+            pytest.skip("Chunked encoding is specific to HTTP/1.1")
+        request = Request(
+            mockserver.url("/broken-chunked", is_secure=self.is_secure),
+            meta={"download_fail_on_dataloss": False},
+        )
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.flags == ["dataloss"]
+        assert response.text == "chunked content\n"
+
     @coroutine_test
     async def test_download_allow_data_loss_via_setting(
-        self, url: str, mockserver: MockServer
+        self, mockserver: MockServer
     ) -> None:
-        request = Request(mockserver.url(f"/{url}", is_secure=self.is_secure))
+        request = Request(mockserver.url("/broken", is_secure=self.is_secure))
         async with self.get_dh(
             {"DOWNLOAD_FAIL_ON_DATALOSS": False}
         ) as download_handler:
@@ -715,6 +726,12 @@ class TestHttp11Base(TestHttpBase):
     @coroutine_test
     async def test_download_conn_aborted(self, mockserver: MockServer) -> None:
         # copy of TestCrawl.test_retry_conn_aborted()
+        if self.http2:
+            # it may be possible to write a separate resource that does something
+            # suitable on HTTP/2 without sending Content-Length
+            pytest.skip(
+                "On HTTP/2 this triggers a Content-Length mismatch error instead."
+            )
         request = Request(mockserver.url("/drop?abort=1", is_secure=self.is_secure))
         async with self.get_dh() as download_handler:
             with pytest.raises(DownloadFailedError):
