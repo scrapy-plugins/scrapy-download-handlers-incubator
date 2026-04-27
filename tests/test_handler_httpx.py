@@ -79,6 +79,7 @@ class TestHttps11(HttpxDownloadHandlerMixin, TestHttps11Base):
 
 class TestHttps2(TestHttps11):
     http2 = True
+    handler_supports_http2_dataloss = False
 
     default_handler_settings: ClassVar[dict[str, Any]] = {
         "HTTPX_HTTP2_ENABLED": True,
