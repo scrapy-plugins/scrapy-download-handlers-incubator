@@ -33,7 +33,7 @@ jobs:
           - python-version: '3.10'
             env:
               TOXENV: py-pinned-noreactor
-          - python-version: '3.13'
+          - python-version: '3.14'
             env:
               TOXENV: py-all-noreactor
           - python-version: '3.13'
