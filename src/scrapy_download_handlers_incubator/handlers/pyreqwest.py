@@ -17,7 +17,7 @@ from scrapy.exceptions import (
 from scrapy.http import Headers
 
 from scrapy_download_handlers_incubator.handlers._base import (
-    BaseIncubatorDownloadHandler,
+    BaseStreamingDownloadHandler,
     _BaseResponseArgs,
 )
 
@@ -39,9 +39,9 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    _Base = BaseIncubatorDownloadHandler[pyreqwest.response.Response]
+    _Base = BaseStreamingDownloadHandler[pyreqwest.response.Response]
 else:
-    _Base = BaseIncubatorDownloadHandler
+    _Base = BaseStreamingDownloadHandler
 
 
 class PyreqwestDownloadHandler(_Base):

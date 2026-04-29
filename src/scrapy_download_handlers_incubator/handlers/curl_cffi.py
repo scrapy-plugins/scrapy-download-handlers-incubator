@@ -19,7 +19,7 @@ from scrapy.exceptions import (
 from scrapy.http import Headers
 
 from scrapy_download_handlers_incubator.handlers._base import (
-    BaseIncubatorDownloadHandler,
+    BaseStreamingDownloadHandler,
     _BaseResponseArgs,
 )
 
@@ -47,9 +47,9 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    _Base = BaseIncubatorDownloadHandler[curl_cffi.Response]
+    _Base = BaseStreamingDownloadHandler[curl_cffi.Response]
 else:
-    _Base = BaseIncubatorDownloadHandler
+    _Base = BaseStreamingDownloadHandler
 
 
 class CurlCffiDownloadHandler(_Base):

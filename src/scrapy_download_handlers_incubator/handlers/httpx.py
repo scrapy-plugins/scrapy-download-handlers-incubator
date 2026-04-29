@@ -19,7 +19,7 @@ from scrapy.http import Headers
 from scrapy.utils.ssl import _make_ssl_context
 
 from scrapy_download_handlers_incubator.handlers._base import (
-    BaseIncubatorDownloadHandler,
+    BaseStreamingDownloadHandler,
     _BaseResponseArgs,
 )
 from scrapy_download_handlers_incubator.utils import (
@@ -44,9 +44,9 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    _Base = BaseIncubatorDownloadHandler[httpx.Response]
+    _Base = BaseStreamingDownloadHandler[httpx.Response]
 else:
-    _Base = BaseIncubatorDownloadHandler
+    _Base = BaseStreamingDownloadHandler
 
 
 class HttpxDownloadHandler(_Base):

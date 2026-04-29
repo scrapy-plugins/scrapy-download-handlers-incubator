@@ -53,14 +53,18 @@ class _BaseResponseArgs(TypedDict):
     protocol: str | None
 
 
-class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_ResponseT]):
+class BaseStreamingDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_ResponseT]):
+    """A base class for HTTP download handlers that follow the streaming logic flow."""
+
     _DEFAULT_CONNECT_TIMEOUT: ClassVar[float] = 10
+    experimental: ClassVar[bool] = True  # flip this in Scrapy
+    requires_asyncio: ClassVar[bool] = True
     # require subclasses to disable proxies explicitly with an explanation
     supports_proxies: ClassVar[bool] = True
     supports_per_request_bindaddress: ClassVar[bool] = False
 
     def __init__(self, crawler: Crawler):
-        if not is_asyncio_available():  # pragma: no cover
+        if self.requires_asyncio and not is_asyncio_available():  # pragma: no cover
             raise NotConfigured(
                 f"{type(self).__name__} requires the asyncio support. Make"
                 f" sure that you have either enabled the asyncio Twisted"
@@ -70,9 +74,10 @@ class BaseIncubatorDownloadHandler(BaseHttpDownloadHandler, ABC, Generic[_Respon
             )
         self._check_deps_installed()
         super().__init__(crawler)
-        logger.warning(
-            f"{type(self).__name__} is experimental and is not recommended for production use."
-        )
+        if self.experimental:
+            logger.warning(
+                f"{type(self).__name__} is experimental and is not recommended for production use."
+            )
         self._bind_address = normalize_bind_address(
             crawler.settings.get("DOWNLOAD_BIND_ADDRESS")
         )

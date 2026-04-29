@@ -20,7 +20,7 @@ from scrapy.exceptions import (
 from scrapy.http import Headers
 
 from scrapy_download_handlers_incubator.handlers._base import (
-    BaseIncubatorDownloadHandler,
+    BaseStreamingDownloadHandler,
     _BaseResponseArgs,
 )
 from scrapy_download_handlers_incubator.utils import (
@@ -46,9 +46,9 @@ logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
-    _Base = BaseIncubatorDownloadHandler[niquests.AsyncResponse]
+    _Base = BaseStreamingDownloadHandler[niquests.AsyncResponse]
 else:
-    _Base = BaseIncubatorDownloadHandler
+    _Base = BaseStreamingDownloadHandler
 
 
 class NiquestsDownloadHandler(_Base):
