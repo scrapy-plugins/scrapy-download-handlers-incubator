@@ -8,11 +8,11 @@ Changelog
 * Dropped support for Scrapy 2.15.x.
 * Added SOCKS proxy support to ``CurlCffiDownloadHandler``,
   ``HttpxDownloadHandler`` and ``NiquestsDownloadHandler``.
-* Fixed getting TLS and server IP information from short responses in
+* Fixed getting TLS and server IP information for short responses in
   ``AiohttpDownloadHandler``.
 * Fixed merging of multi-value response headers in ``NiquestsDownloadHandler``.
 * Allowed importing ``HttpxDownloadHandler`` without ``h2`` installed.
-* Improved wrapping of library-specific exception into Scrapy ones.
+* Improved wrapping of library-specific exceptions into Scrapy ones.
 * CI improvements.
 
 0.1.2 (2026-05-19)
