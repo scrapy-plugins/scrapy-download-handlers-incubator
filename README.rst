@@ -56,16 +56,16 @@ implemented. Please see the sections for individual handlers for more details.
 
 The following table summarizes the most important differences:
 
-========================= ============ ================ ============ ============ ============= ==================
-Handler                   HTTP/2       HTTP/3           Proxies      TLS logging  Impersonation TLS version limits
-========================= ============ ================ ============ ============ ============= ==================
-(HTTP11DownloadHandler)   Not possible Not possible     Yes          Yes          Not possible  No
-AiohttpDownloadHandler    Not possible Not possible     Yes          Yes          Not possible  No
-CurlCffiDownloadHandler   Yes          Yes (not tested) Yes          Not possible No            Not possible
-HttpxDownloadHandler      Yes          Not possible     Yes          Yes          Not possible  No
-NiquestsDownloadHandler   Yes          No               Yes          Yes          Not possible  Not possible
-PyreqwestDownloadHandler  Yes          Not possible     Not possible Not possible Not possible  No
-========================= ============ ================ ============ ============ ============= ==================
+========================= ============ ============ ============= ==================
+Handler                   HTTP/2       Proxies      Impersonation TLS implementation
+========================= ============ ============ ============= ==================
+(HTTP11DownloadHandler)   Not possible Yes          Not possible  ``cryptography``
+AiohttpDownloadHandler    Not possible Yes          Not possible  Stdlib ``ssl``
+CurlCffiDownloadHandler   Yes          Yes          No            ``libcurl``
+HttpxDownloadHandler      Yes          Yes          Not possible  Stdlib ``ssl``
+NiquestsDownloadHandler   Yes          Yes          Not possible  Stdlib ``ssl``
+PyreqwestDownloadHandler  Yes          Not possible Not possible  ``rustls``
+========================= ============ ============ ============= ==================
 
 The following basic features are supported by all handlers unless mentioned in
 their docs:
@@ -114,8 +114,8 @@ Enable it with:
 Features and limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-============================== =============================================================================
-HTTP proxies                   Yes (HTTPS proxies for HTTPS destinations are not supported on Python < 3.11)
+============================== ========================================
+HTTP proxies                   Yes
 SOCKS proxies                  No (not supported by the library)
 HTTP/2                         No (not supported by the library)
 TLS verbose logging            Yes
@@ -123,7 +123,12 @@ TLS verbose logging            Yes
 ``response.certificate``       Yes (DER bytes)
 Per-request ``bindaddress``    No (not supported by the library)
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
-============================== =============================================================================
+TLS implementation             Standard library ``ssl``
+============================== ========================================
+
+Other limitations:
+
+* HTTPS proxies for HTTPS destinations are not supported on Python < 3.11.
 
 Notable features supported by the library but not implemented:
 
@@ -165,6 +170,7 @@ TLS verbose logging            No (not supported by the library)
 ``response.certificate``       No (not supported by the library)
 Per-request ``bindaddress``    No (not supported by the library)
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
+TLS implementation             ``libcurl``
 ============================== ========================================
 
 Notable features supported by the library but not implemented:
@@ -211,9 +217,9 @@ Enable it with:
 Features and limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-============================== ===========================================================================
-HTTP proxies                   Yes (separate connection pool per proxy)
-SOCKS proxies                  Yes (SOCKS5; separate connection pool per proxy; requires ``httpx[socks]``)
+============================== ========================================
+HTTP proxies                   Yes
+SOCKS proxies                  Yes (SOCKS5; requires ``httpx[socks]``)
 HTTP/2                         Yes (requires ``httpx[http2]``)
 HTTP/3                         No (not supported by the library)
 TLS verbose logging            Yes
@@ -221,7 +227,14 @@ TLS verbose logging            Yes
 ``response.certificate``       Yes (DER bytes)
 Per-request ``bindaddress``    No (not supported by the library)
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
-============================== ===========================================================================
+TLS implementation             Standard library ``ssl``
+============================== ========================================
+
+Other limitations:
+
+* The handler creates a separate connection pool for each proxy URL (due to
+  limitations of ``httpx``) which may lead to higher resource usage when
+  using proxy rotation.
 
 Notable features supported by the library but not implemented:
 
@@ -315,6 +328,7 @@ TLS verbose logging         No (not supported by the library)
 ``response.ip_address``     No (not supported by the library)
 ``response.certificate``    No (not supported by the library)
 Per-request ``bindaddress`` No (not supported by the library)
+TLS implementation          Rust ``rustls``
 =========================== =================================
 
 Notable features supported by the library but not implemented:
