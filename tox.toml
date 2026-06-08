@@ -1,6 +1,6 @@
 requires = ["tox>=4.25"]
 env_list = [
-    { product = [["py"], ["aiohttp", "curlcffi", "httpx", "niquests", "pyreqwest", "all", "pinned"], ["", "noreactor"]] },
+    { product = [["py"], ["aiohttp", "curlcffi", "httpx", "niquests", "pyreqwest", "twisted", "all", "pinned"], ["", "noreactor"]] },
     "pre-commit",
     "typing",
     "twinecheck",

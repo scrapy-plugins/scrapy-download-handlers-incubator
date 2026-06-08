@@ -65,6 +65,7 @@ CurlCffiDownloadHandler   Yes          Yes          No            ``libcurl``
 HttpxDownloadHandler      Yes          Yes          Not possible  Stdlib ``ssl``
 NiquestsDownloadHandler   Yes          Yes          Not possible  Stdlib ``ssl``
 PyreqwestDownloadHandler  Yes          Not possible Not possible  ``rustls``
+TwistedDownloadHandler    Not possible Yes          Not possible  ``cryptography``
 ========================= ============ ============ ============= ==================
 
 The following basic features are supported by all handlers unless mentioned in
@@ -342,3 +343,58 @@ Settings
   HTTP/2.
 
 .. _pyreqwest: https://markussintonen.github.io/pyreqwest/pyreqwest.html
+
+TwistedDownloadHandler
+----------------------
+
+This handler supports HTTP/1.1 and uses the Twisted_ library, just like the
+default Scrapy handler, ``HTTP11DownloadHandler``, of which it is a
+reimplementation on top of the shared handler code. Unlike the other handlers
+in this package it requires a Twisted reactor (it works with both asyncio and
+non-asyncio ones) and raises ``NotConfigured`` if no reactor is installed or
+if the ``TWISTED_REACTOR_ENABLED`` setting is ``False``.
+
+It doesn't need any optional dependencies, so install just the package itself:
+
+.. code:: bash
+
+    pip install scrapy-download-handlers-incubator
+
+Enable it with:
+
+.. code-block:: python
+
+    DOWNLOAD_HANDLERS = {
+        "http": "scrapy_download_handlers_incubator.TwistedDownloadHandler",
+        "https": "scrapy_download_handlers_incubator.TwistedDownloadHandler",
+    }
+
+Features and limitations
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+============================== ==========================================
+HTTP proxies                   Yes
+SOCKS proxies                  No (not supported by the library)
+HTTP/2                         No (not supported by the library)
+TLS verbose logging            Yes
+``response.ip_address``        Yes
+``response.certificate``       Yes (``twisted.internet.ssl.Certificate``)
+Per-request ``bindaddress``    Yes
+Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
+TLS implementation             ``cryptography``
+============================== ==========================================
+
+Differences from ``HTTP11DownloadHandler``:
+
+* The ``"partial"`` response flag is not supported: responses delimited by
+  closing the connection are treated as complete.
+* ``response.url`` keeps the URL fragment if there is one (consistent with
+  the other handlers in this package).
+
+Other limitations (shared with ``HTTP11DownloadHandler``):
+
+* HTTPS proxies for HTTPS destinations are not supported.
+* ``response.certificate``, ``response.ip_address`` and TLS verbose logging
+  are not available for responses without a body.
+
+.. _Twisted: https://twisted.org/

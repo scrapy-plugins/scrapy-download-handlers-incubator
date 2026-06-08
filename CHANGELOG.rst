@@ -2,6 +2,13 @@
 Changelog
 =========
 
+0.3.0 (unreleased)
+------------------
+
+* Added ``TwistedDownloadHandler``, a reimplementation of the default Scrapy
+  download handler, ``HTTP11DownloadHandler``, on top of the shared streaming
+  handler code.
+
 0.2.0 (2026-05-30)
 ------------------
 

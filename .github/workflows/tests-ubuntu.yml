@@ -51,6 +51,9 @@ jobs:
           - python-version: '3.14'
             env:
               TOXENV: py-pyreqwest
+          - python-version: '3.14'
+            env:
+              TOXENV: py-twisted
 
     steps:
     - uses: actions/checkout@v6
