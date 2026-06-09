@@ -42,6 +42,9 @@ curl-cffi = [
 httpx = [
     "httpx[http2,socks]>=0.28.1",
 ]
+httpx2 = [
+    "httpx2[http2,socks]>=2.0.0",
+]
 niquests = [
     "niquests[socks]>=3.18.6",
 ]

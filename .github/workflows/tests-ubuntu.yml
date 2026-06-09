@@ -47,6 +47,9 @@ jobs:
               TOXENV: py-httpx
           - python-version: '3.14'
             env:
+              TOXENV: py-httpx2
+          - python-version: '3.14'
+            env:
               TOXENV: py-niquests
           - python-version: '3.14'
             env:
