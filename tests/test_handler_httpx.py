@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from importlib.util import find_spec
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
@@ -28,7 +29,8 @@ if TYPE_CHECKING:
     from tests.mockserver.http import MockServer
 
 
-pytest.importorskip("httpx")
+if find_spec("httpx2") is None and find_spec("httpx") is None:
+    pytest.skip("Neither httpx2 nor httpx are installed", allow_module_level=True)
 
 
 class HttpxDownloadHandlerMixin:

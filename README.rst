@@ -197,12 +197,16 @@ HttpxDownloadHandler
 
 This is an updated copy of the official
 ``scrapy.core.downloader.handlers._httpx.HttpxDownloadHandler`` handler. It
-supports HTTP/1.1 and HTTP/2 and uses the httpx_ library.
+supports HTTP/1.1 and HTTP/2 and uses the httpx2_ library or the httpx_
+library.
 
 Install it with:
 
 .. code:: bash
 
+    # this will install httpx2
+    pip install scrapy-download-handlers-incubator[httpx2]
+    # this will install httpx
     pip install scrapy-download-handlers-incubator[httpx]
 
 Enable it with:
@@ -247,6 +251,7 @@ Settings
 * ``HTTPX_HTTP2_ENABLED`` (``bool``, default: ``False``): Whether to enable
   HTTP/2.
 
+.. _httpx2: https://httpx2.pydantic.dev/
 .. _httpx: https://www.python-httpx.org/
 
 NiquestsDownloadHandler

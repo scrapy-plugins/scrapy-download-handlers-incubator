@@ -33,7 +33,7 @@ from scrapy_download_handlers_incubator.utils import iter_exc_causes
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from httpcore import AsyncNetworkStream
+    from httpcore2 import AsyncNetworkStream
     from scrapy import Request
     from scrapy.crawler import Crawler
 
@@ -41,7 +41,10 @@ if TYPE_CHECKING:
 HAS_SOCKS = HAS_HTTP2 = False
 
 try:
-    import httpx
+    try:
+        import httpx2 as httpx
+    except ImportError:
+        import httpx  # type: ignore[import-not-found,no-redef]
 except ImportError:
     httpx = None  # type: ignore[assignment]
 else:
