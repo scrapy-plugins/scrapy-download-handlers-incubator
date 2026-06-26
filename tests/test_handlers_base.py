@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import gzip
 import json
 import logging
@@ -119,6 +120,18 @@ class TestHttpBase(ABC):
         async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
         assert response.body == b""
+
+    @coroutine_test
+    async def test_concurrent_requests(self, mockserver: MockServer) -> None:
+        async with self.get_dh() as download_handler:
+            requests = [
+                Request(mockserver.url("/text", is_secure=self.is_secure))
+                for _ in range(10)
+            ]
+            responses = await asyncio.gather(
+                *(download_handler.download_request(request) for request in requests)
+            )
+        assert all(response.body == b"Works" for response in responses)
 
     @pytest.mark.parametrize(
         "http_status",
@@ -429,6 +442,34 @@ class TestHttpBase(ABC):
         assert response.body == body
 
     @coroutine_test
+    async def test_large_request_body(self, mockserver: MockServer) -> None:
+        body = b"x" * (1024 * 1024)
+        request = Request(
+            mockserver.url("/echo", is_secure=self.is_secure),
+            method="POST",
+            body=body,
+        )
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.status == HTTPStatus.OK
+        echoed = json.loads(response.body.decode("utf-8"))
+        assert echoed["body"].encode("utf-8") == body
+
+    @coroutine_test
+    async def test_custom_content_length(self, mockserver: MockServer) -> None:
+        """An explicit Content-Length header that matches the body is honored."""
+        body = b"foobar"
+        request = Request(
+            mockserver.url("/contentlength", is_secure=self.is_secure),
+            method="POST",
+            body=body,
+            headers={"Content-Length": str(len(body))},
+        )
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.text == str(len(body))
+
+    @coroutine_test
     async def test_response_header_content_length(self, mockserver: MockServer) -> None:
         request = Request(mockserver.url("/text", is_secure=self.is_secure))
         async with self.get_dh() as download_handler:
@@ -545,6 +586,13 @@ class TestHttpBase(ABC):
         async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
         assert response.body == b"Works"
+
+    @coroutine_test
+    async def test_download_large_body(self, mockserver: MockServer) -> None:
+        request = Request(mockserver.url("/largechunkedfile", is_secure=self.is_secure))
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.body == b"x" * (1024 * 1024)
 
     @coroutine_test
     async def test_response_class_choosing_request(
