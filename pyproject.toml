@@ -8,7 +8,7 @@ version = "0.2.0"
 description = "Incubator for Scrapy download handlers"
 authors = [{ name = "Scrapy developers", email = "opensource@zyte.com" }]
 maintainers = [{ name = "Scrapy developers", email = "opensource@zyte.com" }]
-license = "BSD-3-Clause"
+license = "Apache-2.0"
 readme = "README.rst"
 classifiers = [
     "Development Status :: 3 - Alpha",
