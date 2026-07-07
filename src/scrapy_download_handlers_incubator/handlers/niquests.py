@@ -7,7 +7,7 @@ import logging
 from contextlib import asynccontextmanager
 from importlib.util import find_spec
 from types import MethodType
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 from urllib.parse import urlparse
 
 from scrapy.exceptions import (
@@ -36,6 +36,7 @@ HAS_SOCKS = False
 
 try:
     import niquests.adapters
+    import niquests.cookies
     import niquests.exceptions
     import urllib3.exceptions
 except ImportError:
@@ -72,7 +73,9 @@ class NiquestsDownloadHandler(_Base):
             # number of connections per host in the pool (newer extra ones are not put there)
             pool_maxsize=self._pool_size_per_host,
         )
-        self._session.cookies = NullCookieJar()
+        self._session.cookies = cast(
+            "niquests.cookies.RequestsCookieJar", NullCookieJar()
+        )
         self._session.trust_env = False
         if not self._verify_certificates:
             # Ugly hack to skip proxy certificate verification, may be not worth it.
