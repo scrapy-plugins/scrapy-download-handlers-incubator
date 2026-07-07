@@ -10,10 +10,6 @@ from types import MethodType
 from typing import TYPE_CHECKING, Any, ClassVar
 from urllib.parse import urlparse
 
-from scrapy.core.downloader.handlers._base_streaming import (
-    BaseStreamingDownloadHandler,
-    _BaseResponseArgs,
-)
 from scrapy.exceptions import (
     CannotResolveHostError,
     DownloadConnectionRefusedError,
@@ -27,6 +23,8 @@ from scrapy.utils._download_handlers import NullCookieJar
 from scrapy.utils.ssl import _make_insecure_ssl_ctx
 
 from scrapy_download_handlers_incubator.utils import iter_exc_causes
+
+from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator

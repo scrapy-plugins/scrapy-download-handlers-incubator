@@ -8,10 +8,6 @@ from contextlib import asynccontextmanager
 from socket import gaierror
 from typing import TYPE_CHECKING, ClassVar
 
-from scrapy.core.downloader.handlers._base_streaming import (
-    BaseStreamingDownloadHandler,
-    _BaseResponseArgs,
-)
 from scrapy.exceptions import (
     CannotResolveHostError,
     DownloadConnectionRefusedError,
@@ -29,6 +25,8 @@ from scrapy.utils.ssl import (
 )
 
 from scrapy_download_handlers_incubator.utils import iter_exc_causes
+
+from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
