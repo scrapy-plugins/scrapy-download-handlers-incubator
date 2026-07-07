@@ -113,7 +113,7 @@ class NiquestsDownloadHandler(_Base):
             raise ValueError(
                 f"SOCKS proxy support in {type(self).__name__} requires the 'niquests[socks]' extra to be installed."
             )
-        headers = request.headers.to_unicode_dict()
+        headers = self._request_headers(request).to_unicode_dict()
         for k in list(headers):
             if headers[k] == "":
                 del headers[k]

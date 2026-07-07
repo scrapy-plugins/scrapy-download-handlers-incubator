@@ -94,13 +94,14 @@ class CurlCffiDownloadHandler(_Base):
         self, request: Request, timeout: float
     ) -> AsyncIterator[curl_cffi.Response]:
         proxy = self._extract_proxy_url_with_creds(request)
+        headers = self._request_headers(request).to_tuple_list()
         response: curl_cffi.Response | None = None
         try:
             response = await self._session.request(
                 cast("curl_cffi.requests.session.HttpMethod", request.method),
                 request.url,
                 data=request.body,
-                headers=request.headers.to_tuple_list(),
+                headers=headers,
                 # not exactly followed because of how it's implemented in libcurl
                 timeout=timeout,
                 # don't decompress

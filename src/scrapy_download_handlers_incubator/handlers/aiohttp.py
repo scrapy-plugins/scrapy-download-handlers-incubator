@@ -102,12 +102,13 @@ class AiohttpDownloadHandler(_Base):
         self, request: Request, timeout: float
     ) -> AsyncIterator[_ClientResponse]:
         proxy = self._extract_proxy_url_with_creds(request)
+        headers = self._request_headers(request).to_tuple_list()
         try:
             async with await self._session.request(
                 request.method,
                 request.url,
                 data=request.body,
-                headers=request.headers.to_tuple_list(),
+                headers=headers,
                 timeout=aiohttp.ClientTimeout(total=timeout),
                 ssl=self._ssl_context,
                 allow_redirects=False,

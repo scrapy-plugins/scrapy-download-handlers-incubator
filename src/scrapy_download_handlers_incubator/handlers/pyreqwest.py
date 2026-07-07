@@ -92,7 +92,7 @@ class PyreqwestDownloadHandler(_Base):
             # don't start reading the body early, which breaks the logic flow
             .streamed_read_buffer_limit(0)
         )
-        headers = request.headers.to_tuple_list()
+        headers = self._request_headers(request).to_tuple_list()
         if request.body:
             rb = rb.body_bytes(request.body)
         elif request.method == "POST" and "Content-Length" not in request.headers:
