@@ -16,7 +16,6 @@ deps = [
     "pytest-xdist>=3.7.0",
     "Twisted[http2]>=25.5.0",
     "mitmproxy>=11.0.2",
-    "pyOpenSSL < 26.2.0",  # while we support Scrapy 2.15
     { replace = "if", condition = "not factor.noreactor", then = ["pytest-twisted"], extend = true },
     { replace = "if", condition = "factor.noreactor", then = ["pytest-asyncio"], extend = true },
     { replace = "if", condition = "factor.pinned", then = [
