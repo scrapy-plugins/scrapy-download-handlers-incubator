@@ -16,12 +16,11 @@ deps = [
     "pytest-xdist>=3.7.0",
     "Twisted[http2]>=25.5.0",
     "mitmproxy>=11.0.2",
-    "pyOpenSSL < 26.2.0",  # while we support Scrapy 2.15
     { replace = "if", condition = "not factor.noreactor", then = ["pytest-twisted"], extend = true },
     { replace = "if", condition = "factor.noreactor", then = ["pytest-asyncio"], extend = true },
     { replace = "if", condition = "factor.pinned", then = [
         "Scrapy==2.16.0",
-        "aiohttp==3.11.0",
+        "aiohttp==3.13.3",
         "curl_cffi==0.14.0",
         "httpx[http2,socks]==0.28.1",
         "niquests[socks]==3.18.6",
@@ -66,13 +65,13 @@ commands = [
 basepython = "python3.11"
 deps = [
     "mypy==2.1.0",
-    "aiohttp==3.13.5",
+    "aiohttp==3.14.1",
     "curl_cffi==0.15.0",
-    "httpcore2==2.3.0",
-    "httpx2[http2,socks]==2.3.0",
-    "niquests==3.18.8",
+    "httpcore2==2.5.0",
+    "httpx2[http2,socks]==2.5.0",
+    "niquests==3.20.0",
     "pyreqwest==0.12.0",
-    "pytest==9.0.3",
+    "pytest==9.1.1",
     "Scrapy==2.16.0",
     "Twisted==26.4.0",
 ]
