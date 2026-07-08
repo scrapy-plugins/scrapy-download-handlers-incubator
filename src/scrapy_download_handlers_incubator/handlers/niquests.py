@@ -20,13 +20,18 @@ from scrapy.exceptions import (
 )
 from scrapy.http import Headers
 from scrapy.utils._download_handlers import NullCookieJar
-from scrapy.utils.ssl import _make_insecure_ssl_ctx
+from scrapy.utils.ssl import (
+    _STDLIB_VERSION_MAP,
+    _get_tls_version_limits,
+    _make_insecure_ssl_ctx,
+)
 
 from scrapy_download_handlers_incubator.utils import iter_exc_causes
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
 if TYPE_CHECKING:
+    import ssl
     from collections.abc import AsyncIterator
 
     from scrapy import Request
@@ -63,6 +68,14 @@ class NiquestsDownloadHandler(_Base):
             "DOWNLOAD_VERIFY_CERTIFICATES"
         )
         enable_h2 = crawler.settings.getbool("NIQUESTS_HTTP2_ENABLED")
+        tls_min, tls_max = _get_tls_version_limits(
+            crawler.settings, _STDLIB_VERSION_MAP.__getitem__
+        )
+        tls_kwargs: dict[str, ssl.TLSVersion] = {}
+        if tls_min is not None:
+            tls_kwargs["ssl_minimum_version"] = tls_min
+        if tls_max is not None:
+            tls_kwargs["ssl_maximum_version"] = tls_max
         self._session = niquests.AsyncSession(
             headers={},
             source_address=self._bind_address,
@@ -77,6 +90,10 @@ class NiquestsDownloadHandler(_Base):
             "niquests.cookies.RequestsCookieJar", NullCookieJar()
         )
         self._session.trust_env = False
+        if tls_kwargs:
+            for adapter in self._session.adapters.values():
+                if isinstance(adapter, niquests.adapters.AsyncHTTPAdapter):
+                    adapter.poolmanager.connection_pool_kw.update(tls_kwargs)
         if not self._verify_certificates:
             # Ugly hack to skip proxy certificate verification, may be not worth it.
             # The official docs suggest passing the CA bundle via an envvar but that
