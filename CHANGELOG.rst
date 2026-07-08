@@ -2,6 +2,18 @@
 Changelog
 =========
 
+0.3.0 (unreleased)
+------------------
+
+This is the last version that supports Scrapy 2.16.x.
+
+* Added support for Scrapy 2.17.x.
+* Bumped the minimum supported ``aiohttp`` version to 3.13.3.
+* Added support for the ``httpx2`` library to ``HttpxDownloadHandler``.
+* Fixed handling of the ``Proxy-Authorization`` header.
+* Documentation improvements.
+* CI improvements.
+
 0.2.0 (2026-05-30)
 ------------------
 
