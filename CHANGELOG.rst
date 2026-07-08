@@ -2,7 +2,7 @@
 Changelog
 =========
 
-0.3.0 (unreleased)
+0.3.0 (2026-07-08)
 ------------------
 
 This is the last version that supports Scrapy 2.16.x.
