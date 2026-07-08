@@ -17,6 +17,7 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
+from scrapy.utils.ssl import _get_tls_version_limits
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
@@ -38,6 +39,13 @@ try:
         curl_cffi.const.CurlHttpVersion.V1_1: "HTTP/1.1",
         curl_cffi.const.CurlHttpVersion.V2_0: "HTTP/2.0",
         curl_cffi.const.CurlHttpVersion.V3: "HTTP/3",
+    }
+
+    _TLS_VERSION_MAP: dict[str, int] = {
+        "TLSv1.0": curl_cffi.const.CurlSslVersion.TLSv1_0,
+        "TLSv1.1": curl_cffi.const.CurlSslVersion.TLSv1_1,
+        "TLSv1.2": curl_cffi.const.CurlSslVersion.TLSv1_2,
+        "TLSv1.3": curl_cffi.const.CurlSslVersion.TLSv1_3,
     }
 except ImportError:
     curl_cffi = None  # type: ignore[assignment]
@@ -62,6 +70,21 @@ class CurlCffiDownloadHandler(_Base):
             # disable proxy cert verification for test simplification and to match other handlers
             curl_options[curl_cffi.const.CurlOpt.PROXY_SSL_VERIFYPEER] = 0
             curl_options[curl_cffi.const.CurlOpt.PROXY_SSL_VERIFYHOST] = 0
+        tls_min, tls_max = _get_tls_version_limits(
+            crawler.settings, _TLS_VERSION_MAP.__getitem__
+        )
+        if tls_min is not None or tls_max is not None:
+            min_part = (
+                tls_min
+                if tls_min is not None
+                else curl_cffi.const.CurlSslVersion.DEFAULT
+            )
+            max_part = (
+                (tls_max << 16)
+                if tls_max is not None
+                else curl_cffi.const.CurlSslVersion.MAX_DEFAULT
+            )
+            curl_options[curl_cffi.const.CurlOpt.SSLVERSION] = min_part | max_part
         # https://curl-cffi.readthedocs.io/en/latest/advanced.html#selecting-http-version
         # The mapping is in curl_cffi.requests.utils.normalize_http_version()
         http_version: curl_cffi.requests.utils.HttpVersionLiteral = (

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from datetime import timedelta
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from scrapy.exceptions import (
     CannotResolveHostError,
@@ -15,6 +15,7 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
+from scrapy.utils.ssl import _get_tls_version_limits
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
@@ -27,7 +28,7 @@ if TYPE_CHECKING:
 
 
 try:
-    import pyreqwest.client
+    import pyreqwest.client.types
     import pyreqwest.exceptions
     import pyreqwest.request
     import pyreqwest.response
@@ -41,6 +42,11 @@ else:
     _Base = BaseStreamingDownloadHandler
 
 
+_TLS_VERSION_MAP: dict[str, str] = {
+    v: v for v in ("TLSv1.0", "TLSv1.1", "TLSv1.2", "TLSv1.3")
+}
+
+
 class PyreqwestDownloadHandler(_Base):
     experimental: ClassVar[bool] = True
     # reqwest doesn't support per-request proxies, see e.g.
@@ -51,6 +57,9 @@ class PyreqwestDownloadHandler(_Base):
     def __init__(self, crawler: Crawler):
         super().__init__(crawler)
         enable_h2 = crawler.settings.getbool("PYREQWEST_HTTP2_ENABLED")
+        tls_min, tls_max = _get_tls_version_limits(
+            crawler.settings, _TLS_VERSION_MAP.__getitem__
+        )
         builder: pyreqwest.client.ClientBuilder = (
             pyreqwest.client.ClientBuilder()
             .http2(enable_h2)
@@ -69,6 +78,15 @@ class PyreqwestDownloadHandler(_Base):
 
         if not crawler.settings.getbool("DOWNLOAD_VERIFY_CERTIFICATES"):
             builder = builder.danger_accept_invalid_certs(True)
+
+        if tls_min is not None:
+            builder = builder.min_tls_version(
+                cast("pyreqwest.client.types.TlsVersion", tls_min)
+            )
+        if tls_max is not None:
+            builder = builder.max_tls_version(
+                cast("pyreqwest.client.types.TlsVersion", tls_max)
+            )
 
         if (host := self._get_bind_address_host()) is not None:
             builder = builder.local_address(host)

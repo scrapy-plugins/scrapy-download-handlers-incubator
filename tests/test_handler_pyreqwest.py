@@ -11,6 +11,7 @@ from tests.test_handlers_base import (
     TestHttpsBase,
     TestHttpsInvalidDNSIdBase,
     TestHttpsInvalidDNSPatternBase,
+    TestHttpsTLSVersionBase,
     TestHttpsWrongHostnameBase,
     TestHttpWithCrawlerBase,
     TestRealWebsiteBase,
@@ -117,6 +118,10 @@ class TestHttpsInvalidDNSPattern(
 
 # custom ciphers are not supported
 # class TestHttpsCustomCiphers
+
+
+class TestHttpsTLSVersion(PyreqwestDownloadHandlerMixin, TestHttpsTLSVersionBase):
+    pass
 
 
 class TestHttpWithCrawler(PyreqwestDownloadHandlerMixin, TestHttpWithCrawlerBase):

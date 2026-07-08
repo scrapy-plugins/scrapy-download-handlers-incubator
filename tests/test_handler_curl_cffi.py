@@ -11,6 +11,7 @@ from tests.test_handlers_base import (
     TestHttpsBase,
     TestHttpsInvalidDNSIdBase,
     TestHttpsInvalidDNSPatternBase,
+    TestHttpsTLSVersionBase,
     TestHttpsWrongHostnameBase,
     TestHttpWithCrawlerBase,
     TestMitmProxyBase,
@@ -91,6 +92,10 @@ class TestHttpsInvalidDNSPattern(
 
 # custom ciphers are not supported
 # class TestHttpsCustomCiphers
+
+
+class TestHttpsTLSVersion(CurlCffiDownloadHandlerMixin, TestHttpsTLSVersionBase):
+    pass
 
 
 class TestHttpWithCrawler(CurlCffiDownloadHandlerMixin, TestHttpWithCrawlerBase):
