@@ -7,7 +7,13 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.x509 import load_pem_x509_certificate
 from OpenSSL import SSL
 from OpenSSL.crypto import FILETYPE_PEM, load_certificate, load_privatekey
-from scrapy.utils._deps_compat import PYOPENSSL_WANTS_X509_PKEY
+
+try:
+    from scrapy.utils._deps_compat import PYOPENSSL_X509_DEPRECATED
+except ImportError:  # Scrapy 2.16.x
+    from scrapy.utils._deps_compat import (  # type: ignore[attr-defined,no-redef]
+        PYOPENSSL_WANTS_X509_PKEY as PYOPENSSL_X509_DEPRECATED,
+    )
 from scrapy.utils.python import to_bytes
 from twisted.internet.ssl import CertificateOptions
 
@@ -23,7 +29,7 @@ def ssl_context_factory(
     keyfile_path = Path(__file__).parent.parent / keyfile
     certfile_path = Path(__file__).parent.parent / certfile
 
-    if not PYOPENSSL_WANTS_X509_PKEY:
+    if not PYOPENSSL_X509_DEPRECATED:
         cert = load_pem_x509_certificate(certfile_path.read_bytes())
         key = load_pem_private_key(keyfile_path.read_bytes(), password=None)
     else:

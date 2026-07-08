@@ -72,7 +72,7 @@ deps = [
     "niquests==3.20.0",
     "pyreqwest==0.12.0",
     "pytest==9.1.1",
-    "Scrapy==2.16.0",
+    "Scrapy==2.17.0",
     "Twisted==26.4.0",
 ]
 commands = [
