@@ -23,7 +23,7 @@ deps = [
         "aiohttp==3.13.3",
         "curl_cffi==0.14.0",
         "httpx[http2,socks]==0.28.1",
-        "niquests[socks]==3.18.6",
+        "niquests[socks]==3.20.0",
         "pyreqwest==0.11.0;python_version >= '3.11'",  # the easiest is to skip this on CI
     ], extend = true },
 ]

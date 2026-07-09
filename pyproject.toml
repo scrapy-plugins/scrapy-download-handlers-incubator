@@ -46,7 +46,7 @@ httpx2 = [
     "httpx2[http2,socks]>=2.0.0",
 ]
 niquests = [
-    "niquests[socks]>=3.18.6",
+    "niquests[socks]>=3.20.0",
 ]
 pyreqwest = [
     "pyreqwest>=0.11.0;python_version >= '3.11'",
