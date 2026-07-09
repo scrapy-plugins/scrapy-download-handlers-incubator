@@ -7,7 +7,7 @@ import logging
 from contextlib import asynccontextmanager
 from importlib.util import find_spec
 from types import MethodType
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar
 from urllib.parse import urlparse
 
 from scrapy.exceptions import (
@@ -19,7 +19,6 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
-from scrapy.utils._download_handlers import NullCookieJar
 from scrapy.utils.ssl import (
     _STDLIB_VERSION_MAP,
     _get_tls_version_limits,
@@ -31,7 +30,6 @@ from scrapy_download_handlers_incubator.utils import iter_exc_causes
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
 if TYPE_CHECKING:
-    import ssl
     from collections.abc import AsyncIterator
 
     from scrapy import Request
@@ -41,7 +39,6 @@ HAS_SOCKS = False
 
 try:
     import niquests.adapters
-    import niquests.cookies
     import niquests.exceptions
     import urllib3.exceptions
 except ImportError:
@@ -71,11 +68,6 @@ class NiquestsDownloadHandler(_Base):
         tls_min, tls_max = _get_tls_version_limits(
             crawler.settings, _STDLIB_VERSION_MAP.__getitem__
         )
-        tls_kwargs: dict[str, ssl.TLSVersion] = {}
-        if tls_min is not None:
-            tls_kwargs["ssl_minimum_version"] = tls_min
-        if tls_max is not None:
-            tls_kwargs["ssl_maximum_version"] = tls_max
         self._session = niquests.AsyncSession(
             headers={},
             source_address=self._bind_address,
@@ -85,15 +77,14 @@ class NiquestsDownloadHandler(_Base):
             pool_connections=self._pool_size_total,
             # number of connections per host in the pool (newer extra ones are not put there)
             pool_maxsize=self._pool_size_per_host,
-        )
-        self._session.cookies = cast(
-            "niquests.cookies.RequestsCookieJar", NullCookieJar()
+            allow_incoming_cookies=False,
+            verify=self._verify_certificates,
+            tls_configuration=niquests.TLSConfiguration(
+                min_version=tls_min,
+                max_version=tls_max,
+            ),
         )
         self._session.trust_env = False
-        if tls_kwargs:
-            for adapter in self._session.adapters.values():
-                if isinstance(adapter, niquests.adapters.AsyncHTTPAdapter):
-                    adapter.poolmanager.connection_pool_kw.update(tls_kwargs)
         if not self._verify_certificates:
             # Ugly hack to skip proxy certificate verification, may be not worth it.
             # The official docs suggest passing the CA bundle via an envvar but that
@@ -147,17 +138,16 @@ class NiquestsDownloadHandler(_Base):
                 timeout=timeout,
                 allow_redirects=False,
                 stream=True,
-                verify=self._verify_certificates,
                 proxies=proxies,
             ) as nq_response:
                 yield nq_response
-        except niquests.exceptions.ReadTimeout as e:
+        except niquests.ReadTimeout as e:
             raise DownloadTimeoutError(
                 f"Getting {request.url} took longer than {timeout} seconds."
             ) from e
         except niquests.exceptions.InvalidSchema as e:
             raise UnsupportedURLSchemeError(str(e)) from e
-        except niquests.exceptions.ConnectionError as e:
+        except niquests.ConnectionError as e:
             for c in iter_exc_causes(e):
                 match c:
                     case urllib3.exceptions.NameResolutionError():
@@ -171,7 +161,7 @@ class NiquestsDownloadHandler(_Base):
                         raise DownloadTimeoutError(str(e)) from e
             raise DownloadFailedError(str(e)) from e
         except (
-            niquests.exceptions.RequestException,
+            niquests.RequestException,
             urllib3.exceptions.HTTPError,
         ) as e:
             raise DownloadFailedError(str(e)) from e
