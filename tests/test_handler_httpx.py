@@ -8,6 +8,7 @@ import pytest
 from scrapy import Request
 from scrapy.exceptions import DownloadFailedError
 
+from scrapy_download_handlers_incubator.handlers.httpx import HAS_SOCKS
 from tests.test_handlers_base import (
     TestHttpBase,
     TestHttpProxyBase,
@@ -147,7 +148,7 @@ class TestHttpsProxy(TestHttpProxy):
 
 
 class TestMitmProxy(HttpxDownloadHandlerMixin, TestMitmProxyBase):
-    pass
+    handler_supports_socks = HAS_SOCKS
 
 
 @pytest.mark.requires_internet

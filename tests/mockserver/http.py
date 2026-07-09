@@ -26,6 +26,7 @@ from .http_resources import (
     ResponseHeadersResource,
     SetCookie,
     Status,
+    UriResource,
 )
 
 
@@ -56,8 +57,9 @@ class Root(resource.Resource):
         self.putChild(b"duplicate-header", DuplicateHeaderResource())
         self.putChild(b"response-headers", ResponseHeadersResource())
         self.putChild(b"set-cookie", SetCookie())
+        self.putChild(b"uri", UriResource())
 
-    def getChild(self, name, request):
+    def getChild(self, path, request):
         return self
 
     def render(self, request):
