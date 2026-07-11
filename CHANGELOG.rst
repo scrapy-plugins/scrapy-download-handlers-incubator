@@ -2,6 +2,17 @@
 Changelog
 =========
 
+0.4.0 (unreleased)
+------------------
+
+* Dropped support for Scrapy 2.16.x.
+* Bumped the minimum supported ``niquests`` version to 3.20.0.
+* Added support for the ``DOWNLOAD_TLS_MIN_VERSION`` and
+  ``DOWNLOAD_TLS_MAX_VERSION`` settings to all handlers.
+* Added support for the ``verbatim_url`` request meta key to
+  ``AiohttpDownloadHandler``.
+* CI improvements.
+
 0.3.0 (2026-07-08)
 ------------------
 
