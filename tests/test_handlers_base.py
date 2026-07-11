@@ -30,7 +30,10 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers, HtmlResponse, Request, Response, TextResponse
-from scrapy.utils._deps_compat import TWISTED_TLS_LIMITS_OFFBY1
+from scrapy.utils._deps_compat import (
+    PYOPENSSL_X509_DEPRECATED,
+    TWISTED_TLS_LIMITS_OFFBY1,
+)
 from scrapy.utils.defer import deferred_from_coro, maybe_deferred_to_future
 from scrapy.utils.misc import build_from_crawler
 from scrapy.utils.spider import DefaultSpider
@@ -67,6 +70,10 @@ class TestHttpBase(ABC):
     handler_supports_bindaddress_meta: bool = True
     # whether the handler merges values for the same request header name
     handler_merges_request_headers: bool = False
+    # whether the handler can send URLs verbatim, without percent-encoding
+    # characters that are invalid per RFC 3986 (needed for the verbatim_url
+    # request meta key)
+    handler_supports_verbatim_urls: bool = True
     # RFC 9113 §8.1.1 explicitly says that a Content-Length mismatch is a
     # stream error (of type PROTOCOL_ERROR) so the client will send
     # RST_STREAM. Some libraries do only this while e.g. h2 also closes the
@@ -616,7 +623,7 @@ class TestHttpBase(ABC):
     ) -> None:
         request = Request(mockserver.url("/text", is_secure=self.is_secure))
 
-        # 10 is minimal size for this request and the limit is only counted on
+        # 5 is minimal size for this request and the limit is only counted on
         # response body. (regardless of headers)
         async with self.get_dh({"DOWNLOAD_MAXSIZE": 5}) as download_handler:
             response = await download_handler.download_request(request)
@@ -860,14 +867,42 @@ class TestHttpBase(ABC):
                 "The 'bindaddress' request meta key is not supported by" in caplog.text
             )
 
+    @coroutine_test
+    async def test_verbatim_url(self, mockserver: MockServer) -> None:
+        if not self.handler_supports_verbatim_urls:
+            pytest.skip("The handler cannot send URLs verbatim.")
+        # Square brackets are encoded by safe_url_string (w3lib).
+        path = "/uri/items?data[0]=a"
+        url = mockserver.url(path, is_secure=self.is_secure)
+
+        # Without verbatim_url, the brackets are percent-encoded before the
+        # request reaches the server.
+        request = Request(url)
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.body == b"/uri/items?data%5B0%5D=a"
+
+        # With verbatim_url=True the URL is sent to the server as-is.
+        request = Request(url, meta={"verbatim_url": True})
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.body == path.encode()
+
 
 class TestHttpsBase(TestHttpBase):
     is_secure = True
     handler_supports_tls_logging: bool = True
 
     tls_log_message = (
-        'SSL connection certificate: issuer "/C=IE/O=Scrapy/CN=localhost", '
-        'subject "/C=IE/O=Scrapy/CN=localhost"'
+        (
+            'SSL connection certificate: issuer "CN=localhost,O=Scrapy,C=IE", '
+            'subject "CN=localhost,O=Scrapy,C=IE"'
+        )
+        if PYOPENSSL_X509_DEPRECATED
+        else (
+            'SSL connection certificate: issuer "/C=IE/O=Scrapy/CN=localhost", '
+            'subject "/C=IE/O=Scrapy/CN=localhost"'
+        )
     )
 
     def test_download_conn_lost(self) -> None:  # type: ignore[override]
@@ -1153,6 +1188,9 @@ class TestHttpWithCrawlerBase(ABC):
         reason = crawler.spider.meta["close_reason"]  # type: ignore[attr-defined]
         assert reason == "finished"
 
+    @pytest.mark.filterwarnings(
+        r"ignore:.*You should use cryptography's X\.509 APIs:DeprecationWarning"
+    )
     @coroutine_test
     async def test_response_ssl_certificate(self, mockserver: MockServer) -> None:
         if not self.is_secure:

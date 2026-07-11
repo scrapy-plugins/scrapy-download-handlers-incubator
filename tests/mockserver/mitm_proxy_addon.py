@@ -1,4 +1,7 @@
-def response(flow):
+from typing import Any
+
+
+def response(flow: Any) -> None:
     # add custom headers to be able to check that the request went through the proxy
     flow.response.headers["X-Via-Mitmproxy"] = "1"
     if flow.client_conn.tls_established:

@@ -31,8 +31,10 @@ if TYPE_CHECKING:
 try:
     import aiohttp
     import aiohttp.connector
+    import yarl
 except ImportError:
     aiohttp = None  # type: ignore[assignment]
+    yarl = None  # type: ignore[assignment]
 
 
 if aiohttp is not None:
@@ -103,10 +105,15 @@ class AiohttpDownloadHandler(_Base):
     ) -> AsyncIterator[_ClientResponse]:
         proxy = self._extract_proxy_url_with_creds(request)
         headers = self._request_headers(request).to_tuple_list()
+        url: str | yarl.URL = request.url
+        if request.meta.get("verbatim_url"):
+            # encoded=True disables the percent-encoding normalization that
+            # yarl applies to str URLs, so the URL is sent as is
+            url = yarl.URL(request.url, encoded=True)
         try:
             async with await self._session.request(
                 request.method,
-                request.url,
+                url,
                 data=request.body,
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=timeout),

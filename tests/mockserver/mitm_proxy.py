@@ -50,6 +50,7 @@ sys.exit(mitmdump())
         )
         assert self.proc.stdout is not None
         scheme = "socks5" if self.mode == "socks5" else "http"
+        line = ""
         for line in self.proc.stdout:
             m = re.search(r"listening at (?:\w+://)?([^:]+:\d+)", line)
             if m:

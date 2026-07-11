@@ -61,10 +61,10 @@ commands = [
     ["pre-commit", "run", { replace = "posargs", default = ["--all-files"], extend = true }],
 ]
 
-[env.typing]
+[env.mypy]
 basepython = "python3.11"
 deps = [
-    "mypy==2.1.0",
+    "mypy==2.2.0",
     "aiohttp==3.14.1",
     "curl_cffi==0.15.0",
     "httpcore2==2.5.0",
