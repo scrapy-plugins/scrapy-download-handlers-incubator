@@ -1,5 +1,3 @@
-"""``pyreqwest``-based HTTP(S) download handler. Currently not recommended for production use."""
-
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
