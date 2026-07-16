@@ -4,6 +4,7 @@ from .handlers import (
     HttpxDownloadHandler,
     NiquestsDownloadHandler,
     PyreqwestDownloadHandler,
+    WreqDownloadHandler,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "HttpxDownloadHandler",
     "NiquestsDownloadHandler",
     "PyreqwestDownloadHandler",
+    "WreqDownloadHandler",
 ]

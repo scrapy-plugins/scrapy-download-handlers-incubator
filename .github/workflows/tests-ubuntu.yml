@@ -54,6 +54,9 @@ jobs:
           - python-version: '3.14'
             env:
               TOXENV: py-pyreqwest
+          - python-version: '3.14'
+            env:
+              TOXENV: py-wreq
 
     steps:
     - uses: actions/checkout@v7
