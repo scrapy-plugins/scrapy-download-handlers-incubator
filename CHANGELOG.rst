@@ -2,6 +2,11 @@
 Changelog
 =========
 
+0.4.1 (unreleased)
+------------------
+
+* Added support for Scrapy 2.18.x.
+
 0.4.0 (2026-07-11)
 ------------------
 
