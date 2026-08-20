@@ -38,7 +38,8 @@ given. The documentation, including limitations and unsupported features, is
 also provided as-is and may be incomplete.
 
 As this code intentionally uses private Scrapy APIs, it specifies a tight
-dependency on Scrapy. This version of the package only supports Scrapy 2.17.x.
+dependency on Scrapy. This version of the package only supports Scrapy 2.17.x
+and 2.18.x.
 
 .. _Scrapy: https://scrapy.org/
 .. _Scrapy download handler: https://docs.scrapy.org/en/latest/topics/download-handlers.html
