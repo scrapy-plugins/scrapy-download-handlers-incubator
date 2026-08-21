@@ -30,6 +30,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "pytest>=9.1.1",
     "Scrapy>=2.17,<2.19",
 ]
 
@@ -95,14 +96,9 @@ source = [
 
 [tool.mypy]
 strict = true
-
-[[tool.mypy.overrides]]
-module = [
-    "tests.spiders",
-    "tests.mockserver.*",
+untyped_calls_exclude = [
+    "twisted",
 ]
-allow_untyped_defs = true
-check_untyped_defs = false
 
 [[tool.mypy.overrides]]
 module = "twisted.internet.interfaces"
@@ -112,10 +108,7 @@ follow_imports = "skip"
 module = "twisted.internet.reactor"
 follow_imports = "skip"
 
-# [tool.pytest] requires 9.0.0+, but the py-pinned-noreactor env can't use it
-# due to mutual version restrictions between pytest, pytest-asyncio, mitmproxy
-# and typing-extensions.
-[tool.pytest.ini_options]
+[tool.pytest]
 addopts = ["--import-mode=importlib"]
 markers = [
     "requires_internet: marks tests that need real Internet access",

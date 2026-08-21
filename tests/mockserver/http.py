@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from twisted.web import resource
+from typing import TYPE_CHECKING
+
 from twisted.web.static import Data
 from twisted.web.util import Redirect
 
 from .http_base import BaseMockServer, main_factory
 from .http_resources import (
     ArbitraryLengthPayloadResource,
+    BaseResource,
     BrokenChunkedResource,
     BrokenDownloadResource,
     ChunkedResource,
@@ -27,42 +29,46 @@ from .http_resources import (
     SetCookie,
     Status,
     UriResource,
+    put_child,
 )
 
+if TYPE_CHECKING:
+    from twisted.web.server import Request
 
-class Root(resource.Resource):
-    def __init__(self):
+
+class Root(BaseResource):
+    def __init__(self) -> None:
         super().__init__()
-        self.putChild(b"status", Status())
-        self.putChild(b"delay", Delay())
-        self.putChild(b"partial", Partial())
-        self.putChild(b"drop", Drop())
-        self.putChild(b"echo", Echo())
-        self.putChild(b"payload", PayloadResource())
-        self.putChild(b"alpayload", ArbitraryLengthPayloadResource())
-        self.putChild(b"text", Data(b"Works", "text/plain"))
-        self.putChild(b"redirect", Redirect(b"/redirected"))
-        self.putChild(b"redirected", Data(b"Redirected here", "text/plain"))
-        self.putChild(b"wait", ForeverTakingResource())
-        self.putChild(b"hang-after-headers", ForeverTakingResource(write=True))
-        self.putChild(b"host", HostHeaderResource())
-        self.putChild(b"client-ip", ClientIPResource())
-        self.putChild(b"broken", BrokenDownloadResource())
-        self.putChild(b"chunked", ChunkedResource())
-        self.putChild(b"broken-chunked", BrokenChunkedResource())
-        self.putChild(b"contentlength", ContentLengthHeaderResource())
-        self.putChild(b"nocontenttype", EmptyContentTypeHeaderResource())
-        self.putChild(b"largechunkedfile", LargeChunkedFileResource())
-        self.putChild(b"compress", Compress())
-        self.putChild(b"duplicate-header", DuplicateHeaderResource())
-        self.putChild(b"response-headers", ResponseHeadersResource())
-        self.putChild(b"set-cookie", SetCookie())
-        self.putChild(b"uri", UriResource())
+        put_child(self, b"status", Status())
+        put_child(self, b"delay", Delay())
+        put_child(self, b"partial", Partial())
+        put_child(self, b"drop", Drop())
+        put_child(self, b"echo", Echo())
+        put_child(self, b"payload", PayloadResource())
+        put_child(self, b"alpayload", ArbitraryLengthPayloadResource())
+        put_child(self, b"text", Data(b"Works", "text/plain"))
+        put_child(self, b"redirect", Redirect(b"/redirected"))
+        put_child(self, b"redirected", Data(b"Redirected here", "text/plain"))
+        put_child(self, b"wait", ForeverTakingResource())
+        put_child(self, b"hang-after-headers", ForeverTakingResource(write=True))
+        put_child(self, b"host", HostHeaderResource())
+        put_child(self, b"client-ip", ClientIPResource())
+        put_child(self, b"broken", BrokenDownloadResource())
+        put_child(self, b"chunked", ChunkedResource())
+        put_child(self, b"broken-chunked", BrokenChunkedResource())
+        put_child(self, b"contentlength", ContentLengthHeaderResource())
+        put_child(self, b"nocontenttype", EmptyContentTypeHeaderResource())
+        put_child(self, b"largechunkedfile", LargeChunkedFileResource())
+        put_child(self, b"compress", Compress())
+        put_child(self, b"duplicate-header", DuplicateHeaderResource())
+        put_child(self, b"response-headers", ResponseHeadersResource())
+        put_child(self, b"set-cookie", SetCookie())
+        put_child(self, b"uri", UriResource())
 
-    def getChild(self, path, request):
+    def getChild(self, path: bytes, request: Request) -> Root:
         return self
 
-    def render(self, request):
+    def render(self, request: Request) -> bytes:
         return b"Scrapy mock HTTP server\n"
 
 
