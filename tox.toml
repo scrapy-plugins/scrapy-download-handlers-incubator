@@ -15,7 +15,7 @@ pass_env = [
     "MITMDUMP",
 ]
 deps = [
-    "pytest>=8.4.2",
+    "pytest>=9",
     "pytest-cov>=7.0.0",
     "pytest-xdist>=3.7.0",
     "Twisted[http2]>=25.5.0",

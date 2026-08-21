@@ -108,10 +108,7 @@ follow_imports = "skip"
 module = "twisted.internet.reactor"
 follow_imports = "skip"
 
-# [tool.pytest] requires 9.0.0+, but the py-pinned-noreactor env can't use it
-# due to mutual version restrictions between pytest, pytest-asyncio, mitmproxy
-# and typing-extensions.
-[tool.pytest.ini_options]
+[tool.pytest]
 addopts = ["--import-mode=importlib"]
 markers = [
     "requires_internet: marks tests that need real Internet access",
