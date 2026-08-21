@@ -1,4 +1,7 @@
-requires = ["tox>=4.25"]
+requires = [
+    "tox>=4.25",
+    "tox-uv",
+]
 env_list = [
     { product = [["py"], ["aiohttp", "curlcffi", "httpx", "httpx2", "niquests", "pyreqwest", "all", "pinned"], ["", "noreactor"]] },
     "pre-commit",
