@@ -17,7 +17,7 @@ concurrency:
 jobs:
   tests:
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       PYTEST_ADDOPTS: -n auto
     strategy:
