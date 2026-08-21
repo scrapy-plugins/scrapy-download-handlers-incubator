@@ -49,3 +49,11 @@ def proxy_server(
 def pytest_configure(config: pytest.Config) -> None:
     # Needed on Windows to switch from proactor to selector for Twisted reactor compatibility.
     set_asyncio_event_loop_policy()
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    for item in items:
+        if item.get_closest_marker("requires_internet"):
+            # Requests to real websites fail every now and then in CI for
+            # reasons unrelated to the code under test.
+            item.add_marker(pytest.mark.flaky(reruns=2, reruns_delay=5))
