@@ -1193,8 +1193,8 @@ class TestHttpWithCrawlerBase(ABC):
         cert = crawler.spider.meta["responses"][0].certificate
         assert cert is not None
         if isinstance(cert, Certificate):  # Twisted
-            assert cert.getSubject().commonName == b"localhost"  # type: ignore[no-untyped-call]
-            assert cert.getIssuer().commonName == b"localhost"  # type: ignore[no-untyped-call]
+            assert cert.getSubject().commonName == b"localhost"
+            assert cert.getIssuer().commonName == b"localhost"
         elif isinstance(cert, bytes):  # DER bytes
             cert_x509 = load_der_x509_certificate(cert)
             assert cert_x509.subject.rfc4514_string() == "CN=localhost,O=Scrapy,C=IE"
