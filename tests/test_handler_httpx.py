@@ -29,7 +29,7 @@ from tests.test_handlers_base import (
     TestRealWebsiteBase,
     TestSimpleHttpsBase,
 )
-from tests.utils import IDNA_REJECTED_HOSTNAMES
+from tests.utils import IDNA_REJECTED_HOSTNAMES, SCRAPY_SUPPORTS_SSLKEYLOGFILE
 from tests.utils.decorators import coroutine_test
 
 if TYPE_CHECKING:
@@ -182,6 +182,8 @@ class TestHttpsProxy(TestHttpProxy):
         proxy_mockserver: ProxyEchoMockServer,
         tmp_path: Path,
     ) -> None:
+        if not SCRAPY_SUPPORTS_SSLKEYLOGFILE:
+            pytest.skip("TLS key logging is not supported.")
         keylog_file = tmp_path / "keylog"
         monkeypatch.setenv("SSLKEYLOGFILE", str(keylog_file))
         http_proxy = proxy_mockserver.url("", is_secure=True)
@@ -206,7 +208,6 @@ class TestRealWebsite(HttpxDownloadHandlerMixin, TestRealWebsiteBase):
 async def test_pool_limits(concurrency: int, expected: int | None) -> None:
     from scrapy_download_handlers_incubator import HttpxDownloadHandler  # noqa: PLC0415
 
-    pytest.skip("Not implemented yet.")
     crawler = get_crawler(settings_dict={"CONCURRENT_REQUESTS": concurrency})
     handler = build_from_crawler(HttpxDownloadHandler, crawler)
     try:
