@@ -17,7 +17,7 @@ concurrency:
 jobs:
   tests:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     env:
       PYTEST_ADDOPTS: -n auto
     strategy:
@@ -53,6 +53,9 @@ jobs:
         cache-dependency-glob: |
           pyproject.toml
           tox.toml
+
+    - name: Install mitmproxy
+      run: uv tool install --python 3.14 mitmproxy
 
     - name: Run tests
       env: ${{ matrix.env }}
