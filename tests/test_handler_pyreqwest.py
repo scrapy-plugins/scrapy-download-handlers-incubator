@@ -123,6 +123,7 @@ class TestHttpsInvalidDNSPattern(
 
 # custom ciphers are not supported
 # class TestHttpsCustomCiphers
+# class TestHttpsDefaultCiphers
 
 
 class TestHttpsTLSVersion(PyreqwestDownloadHandlerMixin, TestHttpsTLSVersionBase):

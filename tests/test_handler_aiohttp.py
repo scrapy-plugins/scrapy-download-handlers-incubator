@@ -10,6 +10,7 @@ from tests.test_handlers_base import (
     TestHttpProxyBase,
     TestHttpsBase,
     TestHttpsCustomCiphersBase,
+    TestHttpsDefaultCiphersBase,
     TestHttpsInvalidDNSIdBase,
     TestHttpsInvalidDNSPatternBase,
     TestHttpsTLSVersionBase,
@@ -79,11 +80,15 @@ class TestHttpsCustomCiphers(AiohttpDownloadHandlerMixin, TestHttpsCustomCiphers
     pass
 
 
-class TestHttpWithCrawler(AiohttpDownloadHandlerMixin, TestHttpWithCrawlerBase):
+class TestHttpsDefaultCiphers(AiohttpDownloadHandlerMixin, TestHttpsDefaultCiphersBase):
     pass
 
 
 class TestHttpsTLSVersion(AiohttpDownloadHandlerMixin, TestHttpsTLSVersionBase):
+    pass
+
+
+class TestHttpWithCrawler(AiohttpDownloadHandlerMixin, TestHttpWithCrawlerBase):
     pass
 
 
