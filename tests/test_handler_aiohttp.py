@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from scrapy_download_handlers_incubator import AiohttpDownloadHandler
 from tests.test_handlers_base import (
     TestHttpBase,
     TestHttpProxyBase,
@@ -31,10 +32,6 @@ pytest.importorskip("aiohttp")
 class AiohttpDownloadHandlerMixin:
     @property
     def download_handler_cls(self) -> type[DownloadHandlerProtocol]:
-        from scrapy_download_handlers_incubator import (  # noqa: PLC0415
-            AiohttpDownloadHandler,
-        )
-
         return AiohttpDownloadHandler
 
     @property

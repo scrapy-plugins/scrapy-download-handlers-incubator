@@ -10,6 +10,7 @@ from scrapy.exceptions import DownloadFailedError
 from scrapy.utils.misc import build_from_crawler
 from scrapy.utils.test import get_crawler
 
+from scrapy_download_handlers_incubator import HttpxDownloadHandler
 from scrapy_download_handlers_incubator.handlers.httpx import (  # type: ignore[attr-defined]
     HAS_SOCKS,
     httpx,
@@ -60,11 +61,6 @@ else:
 class HttpxDownloadHandlerMixin:
     @property
     def download_handler_cls(self) -> type[DownloadHandlerProtocol]:
-        # the import will fail if httpx is not installed
-        from scrapy_download_handlers_incubator import (  # noqa: PLC0415
-            HttpxDownloadHandler,
-        )
-
         return HttpxDownloadHandler
 
     @property
@@ -206,8 +202,6 @@ class TestRealWebsite(HttpxDownloadHandlerMixin, TestRealWebsiteBase):
 @pytest.mark.parametrize(("concurrency", "expected"), [(16, 16), (0, None)])
 @coroutine_test
 async def test_pool_limits(concurrency: int, expected: int | None) -> None:
-    from scrapy_download_handlers_incubator import HttpxDownloadHandler  # noqa: PLC0415
-
     crawler = get_crawler(settings_dict={"CONCURRENT_REQUESTS": concurrency})
     handler = build_from_crawler(HttpxDownloadHandler, crawler)
     try:
