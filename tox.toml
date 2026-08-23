@@ -17,6 +17,7 @@ pass_env = [
 deps = [
     "pytest>=9",
     "pytest-cov>=7.0.0",
+    "pytest-rerunfailures",
     "pytest-xdist>=3.7.0",
     "Twisted[http2]>=25.5.0",
     "pyOpenSSL>=24.3.0",  # drop when removing Scrapy 2.17 support

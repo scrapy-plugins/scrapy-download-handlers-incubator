@@ -153,6 +153,7 @@ class CurlCffiDownloadHandler(_Base):
                     if e.code in {
                         curl_cffi.const.CurlECode.SEND_ERROR,
                         curl_cffi.const.CurlECode.RECV_ERROR,
+                        curl_cffi.const.CurlECode.WEIRD_SERVER_REPLY,
                     }:
                         raise DownloadFailedError(str(e)) from e
                     raise DownloadConnectionRefusedError(str(e)) from e

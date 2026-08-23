@@ -4,11 +4,19 @@ import os
 import socket
 from pathlib import Path
 
+import scrapy
+from packaging.version import Version
+
 try:
     socket.getaddrinfo("non-existing-host", 80)
     NON_EXISTING_RESOLVABLE = True
 except socket.gaierror:
     NON_EXISTING_RESOLVABLE = False
+
+
+# Hostnames rejected by the idna package but resolvable in practice: the
+# punycode form of an emoji domain (i❤.ws) and a domain with an underscore.
+IDNA_REJECTED_HOSTNAMES = ["xn--i-7iq.ws", "foo_bar.example"]
 
 
 def get_script_run_env() -> dict[str, str]:
@@ -19,3 +27,7 @@ def get_script_run_env() -> dict[str, str]:
     env = os.environ.copy()
     env["PYTHONPATH"] = pythonpath
     return env
+
+
+SCRAPY_VERSION = Version(scrapy.__version__)
+SCRAPY_SUPPORTS_SSLKEYLOGFILE = Version("2.18.0") <= SCRAPY_VERSION

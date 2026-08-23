@@ -8,6 +8,7 @@ from twisted.web.util import Redirect
 from .http_base import BaseMockServer, main_factory
 from .http_resources import (
     ArbitraryLengthPayloadResource,
+    BadHeader,
     BaseResource,
     BrokenChunkedResource,
     BrokenDownloadResource,
@@ -21,6 +22,12 @@ from .http_resources import (
     Echo,
     EmptyContentTypeHeaderResource,
     ForeverTakingResource,
+    H2DataAndReset,
+    H2GoAway,
+    H2NoSupport,
+    H2Push,
+    H2Raw,
+    H2ResetStream,
     HostHeaderResource,
     LargeChunkedFileResource,
     Partial,
@@ -43,6 +50,7 @@ class Root(BaseResource):
         put_child(self, b"delay", Delay())
         put_child(self, b"partial", Partial())
         put_child(self, b"drop", Drop())
+        put_child(self, b"bad-header", BadHeader())
         put_child(self, b"echo", Echo())
         put_child(self, b"payload", PayloadResource())
         put_child(self, b"alpayload", ArbitraryLengthPayloadResource())
@@ -64,6 +72,12 @@ class Root(BaseResource):
         put_child(self, b"response-headers", ResponseHeadersResource())
         put_child(self, b"set-cookie", SetCookie())
         put_child(self, b"uri", UriResource())
+        put_child(self, b"h2-reset-stream", H2ResetStream())
+        put_child(self, b"h2-data-and-reset", H2DataAndReset())
+        put_child(self, b"h2-goaway", H2GoAway())
+        put_child(self, b"h2-raw", H2Raw())
+        put_child(self, b"h2-no-support", H2NoSupport())
+        put_child(self, b"h2-push", H2Push())
 
     def getChild(self, path: bytes, request: Request) -> Root:
         return self

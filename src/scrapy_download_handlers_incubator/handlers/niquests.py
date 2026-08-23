@@ -19,13 +19,12 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
+from scrapy.utils.python import _iter_exc_causes
 from scrapy.utils.ssl import (
     _STDLIB_VERSION_MAP,
     _get_tls_version_limits,
     _make_insecure_ssl_ctx,
 )
-
-from scrapy_download_handlers_incubator.utils import iter_exc_causes
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
@@ -148,7 +147,7 @@ class NiquestsDownloadHandler(_Base):
         except niquests.exceptions.InvalidSchema as e:
             raise UnsupportedURLSchemeError(str(e)) from e
         except niquests.ConnectionError as e:
-            for c in iter_exc_causes(e):
+            for c in _iter_exc_causes(e):
                 match c:
                     case urllib3.exceptions.NameResolutionError():
                         raise CannotResolveHostError(str(e)) from e

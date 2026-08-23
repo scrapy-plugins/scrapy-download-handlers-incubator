@@ -50,11 +50,16 @@ class CurlCffiDownloadHandlerMixin:
 
 class TestHttp(CurlCffiDownloadHandlerMixin, TestHttpBase):
     handler_supports_bindaddress_meta = False
+    handler_bad_header_handling = "fail"
+    handler_supports_idna_rejected_hostnames = False
 
 
 class TestHttps(CurlCffiDownloadHandlerMixin, TestHttpsBase):
     handler_supports_bindaddress_meta = False
+    handler_bad_header_handling = "fail"
+    handler_supports_idna_rejected_hostnames = False
     handler_supports_tls_logging = False
+    handler_supports_keylogging = False
 
 
 class TestHttp2(TestHttps):
@@ -92,6 +97,7 @@ class TestHttpsInvalidDNSPattern(
 
 # custom ciphers are not supported
 # class TestHttpsCustomCiphers
+# class TestHttpsDefaultCiphers
 
 
 class TestHttpsTLSVersion(CurlCffiDownloadHandlerMixin, TestHttpsTLSVersionBase):

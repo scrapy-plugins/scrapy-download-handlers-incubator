@@ -54,6 +54,7 @@ class TestHttp(NiquestsDownloadHandlerMixin, TestHttpBase):
     handler_merges_request_headers = True
     # urllib3.future percent-encodes RFC 3986-invalid characters, e.g. [ into %5B
     handler_supports_verbatim_urls = False
+    handler_bad_header_handling = "fail"
     # urllib3.future always adds these, even with an empty session.headers
     always_present_req_headers = frozenset({"Accept-Encoding", "User-Agent"})
 
@@ -62,6 +63,8 @@ class TestHttps(NiquestsDownloadHandlerMixin, TestHttpsBase):
     handler_supports_bindaddress_meta = False
     handler_merges_request_headers = True
     handler_supports_verbatim_urls = False
+    handler_bad_header_handling = "fail"
+    handler_supports_keylogging = False
     always_present_req_headers = TestHttp.always_present_req_headers
     tls_log_message = "SSL connection to 127.0.0.1 using protocol TLSv1_3, cipher"
 
@@ -125,6 +128,7 @@ class TestHttpsInvalidDNSPattern(
 
 # custom ciphers are not supported
 # class TestHttpsCustomCiphers
+# class TestHttpsDefaultCiphers
 
 
 class TestHttpsTLSVersion(NiquestsDownloadHandlerMixin, TestHttpsTLSVersionBase):
