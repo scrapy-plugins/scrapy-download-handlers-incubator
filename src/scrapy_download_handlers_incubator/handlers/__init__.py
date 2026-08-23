@@ -1,9 +1,3 @@
-"""Download handlers.
-
-The handler classes are imported lazily, on first access, so that importing
-this package doesn't import the libraries of all handlers.
-"""
-
 from __future__ import annotations
 
 from importlib import import_module

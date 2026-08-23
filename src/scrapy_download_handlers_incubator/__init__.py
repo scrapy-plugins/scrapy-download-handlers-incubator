@@ -22,7 +22,6 @@ __all__ = [
 
 
 def __getattr__(name: str) -> Any:
-    # The handler classes are imported lazily, see handlers/__init__.py.
     if name not in __all__:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     return getattr(import_module(".handlers", __name__), name)
