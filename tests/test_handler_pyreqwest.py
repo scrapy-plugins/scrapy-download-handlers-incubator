@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import pytest
 from scrapy import Request
 
+from scrapy_download_handlers_incubator import PyreqwestDownloadHandler
 from tests.test_handlers_base import (
     TestHttpBase,
     TestHttpsBase,
@@ -31,10 +32,6 @@ pytest.importorskip("pyreqwest")
 class PyreqwestDownloadHandlerMixin:
     @property
     def download_handler_cls(self) -> type[DownloadHandlerProtocol]:
-        from scrapy_download_handlers_incubator import (  # noqa: PLC0415
-            PyreqwestDownloadHandler,
-        )
-
         return PyreqwestDownloadHandler
 
     @property

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import pytest
 from scrapy import Request
 
+from scrapy_download_handlers_incubator import NiquestsDownloadHandler
 from tests.test_handlers_base import (
     TestHttpBase,
     TestHttpProxyBase,
@@ -32,10 +33,6 @@ pytest.importorskip("niquests")
 class NiquestsDownloadHandlerMixin:
     @property
     def download_handler_cls(self) -> type[DownloadHandlerProtocol]:
-        from scrapy_download_handlers_incubator import (  # noqa: PLC0415
-            NiquestsDownloadHandler,
-        )
-
         return NiquestsDownloadHandler
 
     @property
