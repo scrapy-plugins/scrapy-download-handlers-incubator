@@ -2,7 +2,7 @@
 Changelog
 =========
 
-0.5.0 (unreleased)
+0.5.0 (2026-09-04)
 ------------------
 
 This is the last version that supports Scrapy 2.17.x.
