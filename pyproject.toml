@@ -123,12 +123,20 @@ extend-select = [
     "A",
     # flake8-async
     "ASYNC",
+    # flake8-bugbear
+    "B",
     # flake8-comprehensions
     "C4",
     # flake8-commas
     "COM",
     # pydocstyle
     "D",
+    # pycodestyle
+    "E4",
+    "E7",
+    "E9",
+    # Pyflakes
+    "F",
     # flake8-future-annotations
     "FA",
     # flynt
@@ -161,6 +169,8 @@ extend-select = [
     "RET",
     # flake8-raise
     "RSE",
+    # Ruff-specific rules
+    "RUF",
     # flake8-bandit
     "S",
     # flake8-simplify
@@ -173,6 +183,8 @@ extend-select = [
     "TC",
     # flake8-tidy-imports
     "TID",
+    # pyupgrade
+    "UP",
     # pycodestyle warnings
     "W",
     # flake8-2020
