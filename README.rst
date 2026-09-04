@@ -10,20 +10,12 @@ scrapy-download-handlers-incubator
    :target: https://pypi.org/project/scrapy-download-handlers-incubator/
    :alt: Supported Python versions
 
-.. image:: https://github.com/scrapy/scrapy-download-handlers-incubator/actions/workflows/tests-ubuntu.yml/badge.svg
-   :target: https://github.com/scrapy/scrapy-download-handlers-incubator/actions/workflows/tests-ubuntu.yml
-   :alt: Tests - Ubuntu
+.. image:: https://github.com/scrapy-plugins/scrapy-download-handlers-incubator/actions/workflows/tests.yml/badge.svg
+   :target: https://github.com/scrapy-plugins/scrapy-download-handlers-incubator/actions/workflows/tests.yml
+   :alt: Tests
 
-.. image:: https://github.com/scrapy/scrapy-download-handlers-incubator/actions/workflows/tests-macos.yml/badge.svg
-   :target: https://github.com/scrapy/scrapy-download-handlers-incubator/actions/workflows/tests-macos.yml
-   :alt: Tests - macOS
-
-.. image:: https://github.com/scrapy/scrapy-download-handlers-incubator/actions/workflows/tests-windows.yml/badge.svg
-   :target: https://github.com/scrapy/scrapy-download-handlers-incubator/actions/workflows/tests-windows.yml
-   :alt: Tests - Windows
-
-.. image:: https://codecov.io/gh/scrapy/scrapy-download-handlers-incubator/branch/main/graph/badge.svg
-   :target: https://codecov.io/gh/scrapy/scrapy-download-handlers-incubator
+.. image:: https://codecov.io/gh/scrapy-plugins/scrapy-download-handlers-incubator/branch/main/graph/badge.svg
+   :target: https://codecov.io/gh/scrapy-plugins/scrapy-download-handlers-incubator
    :alt: Coverage
 
 Overview
@@ -288,6 +280,7 @@ TLS verbose logging            Yes
 ``response.certificate``       Yes (DER bytes)
 Per-request ``bindaddress``    No (not supported by the library)
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
+TLS implementation             Standard library ``ssl``
 ============================== ==================================================
 
 Notable features supported by the library but not implemented:

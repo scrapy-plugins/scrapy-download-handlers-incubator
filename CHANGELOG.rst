@@ -2,6 +2,16 @@
 Changelog
 =========
 
+0.5.0 (unreleased)
+------------------
+
+This is the last version that supports Scrapy 2.17.x.
+
+* Importing the top-level package no longer tries to import all handler
+  modules, those are now imported lazily.
+* Synced ``HttpxDownloadHandler`` changes from Scrapy.
+* CI improvements.
+
 0.4.1 (2026-08-20)
 ------------------
 

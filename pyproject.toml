@@ -30,7 +30,6 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "pytest>=9.1.1",
     "Scrapy>=2.17,<2.19",
 ]
 
@@ -55,10 +54,10 @@ pyreqwest = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/scrapy/scrapy-download-handlers-incubator"
-Source = "https://github.com/scrapy/scrapy-download-handlers-incubator"
-Tracker = "https://github.com/scrapy/scrapy-download-handlers-incubator/issues"
-Docs = "https://github.com/scrapy-plugins/scrapy-download-handlers-incubator/blob/master/README.rst"
+Homepage = "https://github.com/scrapy-plugins/scrapy-download-handlers-incubator"
+Source = "https://github.com/scrapy-plugins/scrapy-download-handlers-incubator"
+Tracker = "https://github.com/scrapy-plugins/scrapy-download-handlers-incubator/issues"
+Docs = "https://github.com/scrapy-plugins/scrapy-download-handlers-incubator/blob/main/README.rst"
 "Release notes" = "https://github.com/scrapy-plugins/scrapy-download-handlers-incubator/blob/main/CHANGELOG.rst"
 
 [tool.hatch.build.targets.sdist]
@@ -124,12 +123,20 @@ extend-select = [
     "A",
     # flake8-async
     "ASYNC",
+    # flake8-bugbear
+    "B",
     # flake8-comprehensions
     "C4",
     # flake8-commas
     "COM",
     # pydocstyle
     "D",
+    # pycodestyle
+    "E4",
+    "E7",
+    "E9",
+    # Pyflakes
+    "F",
     # flake8-future-annotations
     "FA",
     # flynt
@@ -162,6 +169,8 @@ extend-select = [
     "RET",
     # flake8-raise
     "RSE",
+    # Ruff-specific rules
+    "RUF",
     # flake8-bandit
     "S",
     # flake8-simplify
@@ -174,6 +183,8 @@ extend-select = [
     "TC",
     # flake8-tidy-imports
     "TID",
+    # pyupgrade
+    "UP",
     # pycodestyle warnings
     "W",
     # flake8-2020
