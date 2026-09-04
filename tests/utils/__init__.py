@@ -4,9 +4,6 @@ import os
 import socket
 from pathlib import Path
 
-import scrapy
-from packaging.version import Version
-
 try:
     socket.getaddrinfo("non-existing-host", 80)
     NON_EXISTING_RESOLVABLE = True
@@ -27,7 +24,3 @@ def get_script_run_env() -> dict[str, str]:
     env = os.environ.copy()
     env["PYTHONPATH"] = pythonpath
     return env
-
-
-SCRAPY_VERSION = Version(scrapy.__version__)
-SCRAPY_SUPPORTS_SSLKEYLOGFILE = Version("2.18.0") <= SCRAPY_VERSION

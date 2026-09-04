@@ -48,11 +48,7 @@ from tests.spiders import (
     SimpleSpider,
     SingleRequestSpider,
 )
-from tests.utils import (
-    IDNA_REJECTED_HOSTNAMES,
-    NON_EXISTING_RESOLVABLE,
-    SCRAPY_SUPPORTS_SSLKEYLOGFILE,
-)
+from tests.utils import IDNA_REJECTED_HOSTNAMES, NON_EXISTING_RESOLVABLE
 from tests.utils.decorators import coroutine_test
 
 if TYPE_CHECKING:
@@ -1068,7 +1064,7 @@ class TestHttpsBase(TestHttpBase):
         monkeypatch: pytest.MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        if not self.handler_supports_keylogging or not SCRAPY_SUPPORTS_SSLKEYLOGFILE:
+        if not self.handler_supports_keylogging:
             pytest.skip("TLS key logging is not supported.")
         keylog_file = tmp_path / "keylog"
         monkeypatch.setenv("SSLKEYLOGFILE", str(keylog_file))
@@ -1093,7 +1089,7 @@ class TestHttpsBase(TestHttpBase):
         tmp_path: Path,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        if not self.handler_supports_keylogging or not SCRAPY_SUPPORTS_SSLKEYLOGFILE:
+        if not self.handler_supports_keylogging:
             pytest.skip("TLS key logging is not supported.")
         monkeypatch.setenv("SSLKEYLOGFILE", str(tmp_path / "missing" / "keylog"))
         request = Request(mockserver.url("/text", is_secure=self.is_secure))

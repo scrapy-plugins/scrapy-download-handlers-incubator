@@ -30,7 +30,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "Scrapy>=2.17,<2.19",
+    "Scrapy>=2.18,<2.19",
 ]
 
 [project.optional-dependencies]
