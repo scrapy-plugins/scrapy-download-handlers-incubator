@@ -50,11 +50,11 @@ if aiohttp is not None:
             self, connection: aiohttp.connector.Connection
         ) -> aiohttp.ClientResponse:
             transport = connection.transport
-            if transport is not None:
-                self._peername = transport.get_extra_info("peername")
-                ssl_object = transport.get_extra_info("ssl_object")
-                if isinstance(ssl_object, ssl.SSLObject):
-                    self._ssl_object = ssl_object
+            assert transport is not None
+            self._peername = transport.get_extra_info("peername")
+            ssl_object = transport.get_extra_info("ssl_object")
+            if isinstance(ssl_object, ssl.SSLObject):
+                self._ssl_object = ssl_object
             return await super().start(connection)
 
 
@@ -150,11 +150,12 @@ class AiohttpDownloadHandler(_Base):
         protocol_version = (
             f"HTTP/{version.major}.{version.minor}" if version else "HTTP/1.1"
         )
-        ip_address = cert = None
-        if response._peername:
-            ip_address = ipaddress.ip_address(response._peername[0])
-        if response._ssl_object:
+        assert response._peername is not None
+        ip_address = ipaddress.ip_address(response._peername[0])
+        if response._ssl_object is not None:
             cert = response._ssl_object.getpeercert(binary_form=True)
+        else:  # HTTP
+            cert = None
         return {
             "status": response.status,
             "url": request.url,
@@ -165,8 +166,8 @@ class AiohttpDownloadHandler(_Base):
         }
 
     def _log_tls_info(self, response: _ClientResponse, request: Request) -> None:
-        if response._ssl_object:
-            _log_sslobj_debug_info(response._ssl_object)
+        assert response._ssl_object is not None
+        _log_sslobj_debug_info(response._ssl_object)
 
     @staticmethod
     def _iter_body_chunks(response: _ClientResponse) -> AsyncIterator[bytes]:
