@@ -6,12 +6,14 @@ import ssl
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, ClassVar, cast
 
+import aiohttp
+import aiohttp.connector
+import yarl
 from scrapy.exceptions import (
     CannotResolveHostError,
     DownloadConnectionRefusedError,
     DownloadFailedError,
     DownloadTimeoutError,
-    NotConfigured,
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
@@ -26,45 +28,28 @@ if TYPE_CHECKING:
     from scrapy.crawler import Crawler
 
 
-try:
-    import aiohttp
-    import aiohttp.connector
-    import yarl
-except ImportError:
-    aiohttp = None  # type: ignore[assignment]
-    yarl = None  # type: ignore[assignment]
+class _ClientResponse(aiohttp.ClientResponse):
+    """Captures transport data that can be lost after parent ``start()``.
+
+    Workaround for https://github.com/aio-libs/aiohttp/issues/2205.
+    """
+
+    _peername: tuple[str, int] | None = None
+    _ssl_object: ssl.SSLObject | None = None
+
+    async def start(
+        self, connection: aiohttp.connector.Connection
+    ) -> aiohttp.ClientResponse:
+        transport = connection.transport
+        assert transport is not None
+        self._peername = transport.get_extra_info("peername")
+        ssl_object = transport.get_extra_info("ssl_object")
+        if isinstance(ssl_object, ssl.SSLObject):
+            self._ssl_object = ssl_object
+        return await super().start(connection)
 
 
-if aiohttp is not None:
-
-    class _ClientResponse(aiohttp.ClientResponse):
-        """Captures transport data that can be lost after parent ``start()``.
-
-        Workaround for https://github.com/aio-libs/aiohttp/issues/2205.
-        """
-
-        _peername: tuple[str, int] | None = None
-        _ssl_object: ssl.SSLObject | None = None
-
-        async def start(
-            self, connection: aiohttp.connector.Connection
-        ) -> aiohttp.ClientResponse:
-            transport = connection.transport
-            assert transport is not None
-            self._peername = transport.get_extra_info("peername")
-            ssl_object = transport.get_extra_info("ssl_object")
-            if isinstance(ssl_object, ssl.SSLObject):
-                self._ssl_object = ssl_object
-            return await super().start(connection)
-
-
-if TYPE_CHECKING:
-    _Base = BaseStreamingDownloadHandler[_ClientResponse]
-else:
-    _Base = BaseStreamingDownloadHandler
-
-
-class AiohttpDownloadHandler(_Base):
+class AiohttpDownloadHandler(BaseStreamingDownloadHandler[_ClientResponse]):
     experimental: ClassVar[bool] = True
 
     def __init__(self, crawler: Crawler):
@@ -89,13 +74,6 @@ class AiohttpDownloadHandler(_Base):
                 "User-Agent",
             ),
         )
-
-    @staticmethod
-    def _check_deps_installed() -> None:
-        if aiohttp is None:  # pragma: no cover
-            raise NotConfigured(
-                "AiohttpDownloadHandler requires the aiohttp library to be installed."
-            )
 
     @asynccontextmanager
     async def _make_request(
