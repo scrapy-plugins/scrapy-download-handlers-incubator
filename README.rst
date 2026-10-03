@@ -124,10 +124,19 @@ Other limitations:
 
 * HTTPS proxies for HTTPS destinations are not supported on Python < 3.11.
 
-Notable features supported by the library but not implemented:
+Settings
+^^^^^^^^
 
-* DNS resolving settings
-* Custom DNS resolvers
+* ``AIOHTTP_DNS_CACHE_ENABLED`` (``bool``, default: ``True``): Whether to cache
+  DNS resolution results.
+* ``AIOHTTP_DNS_CACHE_TTL`` (``int`` or ``None``, default: ``10``): How many
+  seconds DNS resolution results remain cached. Set it to ``None`` to cache
+  them for the lifetime of the download handler.
+* ``AIOHTTP_DNS_RESOLVER`` (import path or class, unset by default): An
+  ``aiohttp.abc.AbstractResolver`` implementation. The class is constructed
+  using Scrapy's component construction rules, so it may define a
+  ``from_crawler()`` class method. The download handler closes the resolver
+  when it closes.
 
 .. _aiohttp: https://docs.aiohttp.org/en/stable/
 

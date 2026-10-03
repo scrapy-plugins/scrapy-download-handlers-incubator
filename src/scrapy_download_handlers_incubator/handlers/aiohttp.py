@@ -17,6 +17,7 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
+from scrapy.utils.misc import build_from_crawler, load_object
 from scrapy.utils.ssl import _log_sslobj_debug_info, _make_ssl_context
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
@@ -55,12 +56,26 @@ class AiohttpDownloadHandler(BaseStreamingDownloadHandler[_ClientResponse]):
     def __init__(self, crawler: Crawler):
         super().__init__(crawler)
         self._ssl_context: ssl.SSLContext = _make_ssl_context(crawler.settings)
+        self._resolver: aiohttp.abc.AbstractResolver | None = None
+        resolver_cls = crawler.settings.get("AIOHTTP_DNS_RESOLVER")
+        if resolver_cls:
+            self._resolver = build_from_crawler(load_object(resolver_cls), crawler)
+        # Settings.get() replaces an explicit None with the default, while
+        # aiohttp uses None to mean that cached records never expire.
+        ttl_dns_cache = crawler.settings["AIOHTTP_DNS_CACHE_TTL"]
+        if ttl_dns_cache is None and "AIOHTTP_DNS_CACHE_TTL" not in crawler.settings:
+            ttl_dns_cache = 10
+        if ttl_dns_cache is not None:
+            ttl_dns_cache = int(ttl_dns_cache)
         connector = aiohttp.TCPConnector(
             local_addr=self._bind_address,
             # hard limit on simultaneous connections
             limit=self._pool_size_total,
             # hard limit on simultaneous connections per host
             limit_per_host=self._pool_size_per_host,
+            resolver=self._resolver,
+            ttl_dns_cache=ttl_dns_cache,
+            use_dns_cache=crawler.settings.getbool("AIOHTTP_DNS_CACHE_ENABLED", True),
         )
         self._session: aiohttp.ClientSession = aiohttp.ClientSession(
             connector=connector,
@@ -156,4 +171,8 @@ class AiohttpDownloadHandler(BaseStreamingDownloadHandler[_ClientResponse]):
         return isinstance(exc, aiohttp.ClientPayloadError)
 
     async def close(self) -> None:
-        await self._session.close()
+        try:
+            await self._session.close()
+        finally:
+            if self._resolver is not None:
+                await self._resolver.close()
