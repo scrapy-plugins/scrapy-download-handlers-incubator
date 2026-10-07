@@ -112,7 +112,9 @@ class CurlCffiDownloadHandler(_Base):
 
     @asynccontextmanager
     async def _make_request(
-        self, request: Request, timeout: float
+        self,
+        request: Request,
+        timeout: float,  # noqa: ASYNC109
     ) -> AsyncIterator[curl_cffi.Response]:
         proxy = self._extract_proxy_url_with_creds(request)
         headers = self._request_headers(request).to_tuple_list()

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 from scrapy import signals
 from scrapy.exceptions import StopDownload
@@ -12,9 +12,6 @@ if TYPE_CHECKING:
 
     from scrapy.crawler import Crawler
     from twisted.python.failure import Failure
-
-    # typing.Self requires Python 3.11
-    from typing_extensions import Self
 
     from tests.mockserver.http import MockServer
 
