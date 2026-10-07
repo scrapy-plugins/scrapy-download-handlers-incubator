@@ -100,7 +100,9 @@ class PyreqwestDownloadHandler(_Base):
 
     @asynccontextmanager
     async def _make_request(
-        self, request: Request, timeout: float
+        self,
+        request: Request,
+        timeout: float,  # noqa: ASYNC109
     ) -> AsyncIterator[pyreqwest.response.Response]:
         rb: pyreqwest.request.RequestBuilder = (
             self._client.request(request.method, request.url)

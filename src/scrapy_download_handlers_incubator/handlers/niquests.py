@@ -114,7 +114,9 @@ class NiquestsDownloadHandler(_Base):
 
     @asynccontextmanager
     async def _make_request(
-        self, request: Request, timeout: float
+        self,
+        request: Request,
+        timeout: float,  # noqa: ASYNC109
     ) -> AsyncIterator[niquests.AsyncResponse]:
         proxy = self._extract_proxy_url_with_creds(request)
         if proxy and proxy.startswith("socks") and not HAS_SOCKS:  # pragma: no cover

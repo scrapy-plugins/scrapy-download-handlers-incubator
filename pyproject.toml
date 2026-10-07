@@ -17,7 +17,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -28,7 +27,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "Scrapy>=2.19,<2.20",
 ]
@@ -47,7 +46,7 @@ niquests = [
     "niquests[socks]>=3.20.0",
 ]
 pyreqwest = [
-    "pyreqwest>=0.11.0;python_version >= '3.11'",
+    "pyreqwest>=0.11.0",
 ]
 
 [project.urls]
