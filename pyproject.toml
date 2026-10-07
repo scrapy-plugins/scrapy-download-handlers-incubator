@@ -34,7 +34,7 @@ dependencies = [
 
 [project.optional-dependencies]
 curl-cffi = [
-    "curl_cffi>=0.14.0",
+    "curl_cffi>=0.16.0",
 ]
 httpx = [
     "httpx[http2,socks]>=0.28.1",
