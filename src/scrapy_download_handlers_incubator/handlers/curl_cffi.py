@@ -133,38 +133,29 @@ class CurlCffiDownloadHandler(_Base):
                 stream=True,
             )
             yield response
+        except curl_cffi.requests.exceptions.Timeout as e:
+            raise DownloadTimeoutError(
+                f"Getting {request.url} took longer than {timeout} seconds."
+            ) from e
+        except curl_cffi.requests.exceptions.InvalidSchema as e:
+            raise UnsupportedURLSchemeError(str(e)) from e
+        except curl_cffi.requests.exceptions.DNSError as e:
+            raise CannotResolveHostError(str(e)) from e
+        except (
+            curl_cffi.requests.exceptions.SSLError,
+            curl_cffi.requests.exceptions.ProxyError,
+        ) as e:
+            raise DownloadConnectionRefusedError(str(e)) from e
+        except curl_cffi.requests.exceptions.ConnectionError as e:
+            if e.code in {
+                curl_cffi.const.CurlECode.SEND_ERROR,
+                curl_cffi.const.CurlECode.RECV_ERROR,
+                curl_cffi.const.CurlECode.WEIRD_SERVER_REPLY,
+            }:
+                raise DownloadFailedError(str(e)) from e
+            raise DownloadConnectionRefusedError(str(e)) from e
         except curl_cffi.requests.exceptions.RequestException as e:
-            # In the streaming mode the wrapper exception is always RequestException:
-            # https://github.com/lexiforest/curl_cffi/issues/744
-            # So we do mapping ourselves.
-            mapped_e_cls = curl_cffi.requests.exceptions.code2error(
-                cast("curl_cffi.CurlECode", e.code), str(e)
-            )
-            match mapped_e_cls:
-                case curl_cffi.requests.exceptions.Timeout:
-                    raise DownloadTimeoutError(
-                        f"Getting {request.url} took longer than {timeout} seconds."
-                    ) from e
-                case curl_cffi.requests.exceptions.InvalidSchema:
-                    raise UnsupportedURLSchemeError(str(e)) from e
-                case curl_cffi.requests.exceptions.DNSError:
-                    raise CannotResolveHostError(str(e)) from e
-                case curl_cffi.requests.exceptions.ConnectionError:
-                    if e.code in {
-                        curl_cffi.const.CurlECode.SEND_ERROR,
-                        curl_cffi.const.CurlECode.RECV_ERROR,
-                        curl_cffi.const.CurlECode.WEIRD_SERVER_REPLY,
-                    }:
-                        raise DownloadFailedError(str(e)) from e
-                    raise DownloadConnectionRefusedError(str(e)) from e
-                case (
-                    curl_cffi.requests.exceptions.CertificateVerifyError
-                    | curl_cffi.requests.exceptions.SSLError
-                    | curl_cffi.requests.exceptions.ProxyError
-                ):
-                    raise DownloadConnectionRefusedError(str(e)) from e
-                case _:
-                    raise DownloadFailedError(str(e)) from e
+            raise DownloadFailedError(str(e)) from e
         finally:
             if response is not None:
                 # work around hanging in e.g. test_download_with_content_length()
