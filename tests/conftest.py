@@ -19,8 +19,22 @@ def mockserver() -> Generator[MockServer]:
 
 
 @pytest.fixture(scope="session")
-def _mitm_proxies() -> Generator[dict[str, tuple[MitmProxy, str]]]:
-    proxies: dict[str, tuple[MitmProxy, str]] = {}
+def mockserver_ipv6() -> Generator[MockServer]:
+    """A mockserver addressed by the IPv6 loopback.
+
+    Tests using this must skip when :func:`ipv6_loopback_available` is False.
+    """
+    # Where IPv6 sockets also accept IPv4, binding the IPv6 wildcard keeps
+    # IPv4 servers from getting the same port numbers. Otherwise a client
+    # resolving localhost to ::1 first would reach this server instead of
+    # an IPv4 one.
+    with MockServer("::") as mockserver:
+        yield mockserver
+
+
+@pytest.fixture(scope="session")
+def _mitm_proxies() -> Generator[dict[tuple[str, str], tuple[MitmProxy, str]]]:
+    proxies: dict[tuple[str, str], tuple[MitmProxy, str]] = {}
     try:
         yield proxies
     finally:
@@ -32,13 +46,16 @@ def _mitm_proxies() -> Generator[dict[str, tuple[MitmProxy, str]]]:
 def proxy_server(
     request: pytest.FixtureRequest,
     monkeypatch: pytest.MonkeyPatch,
-    _mitm_proxies: dict[str, tuple[MitmProxy, str]],
+    _mitm_proxies: dict[tuple[str, str], tuple[MitmProxy, str]],
 ) -> str:
     kind: str = request.param
-    if kind not in _mitm_proxies:
-        proxy = MitmProxy(mode="socks5" if kind == "socks5" else None)
-        _mitm_proxies[kind] = (proxy, proxy.start())
-    _, url = _mitm_proxies[kind]
+    # test classes can make the proxy listen on a different address, e.g. "::1"
+    host = getattr(request.cls, "proxy_host", "127.0.0.1")
+    cache_key = (kind, host)
+    if cache_key not in _mitm_proxies:
+        proxy = MitmProxy(mode="socks5" if kind == "socks5" else None, host=host)
+        _mitm_proxies[cache_key] = (proxy, proxy.start())
+    _, url = _mitm_proxies[cache_key]
     if kind == "https":
         url = url.replace("http://", "https://")
     monkeypatch.setenv("http_proxy", url)

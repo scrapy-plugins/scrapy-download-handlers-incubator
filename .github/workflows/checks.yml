@@ -25,7 +25,7 @@ jobs:
         - python-version: "3.11"
           env:
             TOXENV: mypy
-        - python-version: "3.14"
+        - python-version: "3.15"
           env:
             TOXENV: twinecheck
 

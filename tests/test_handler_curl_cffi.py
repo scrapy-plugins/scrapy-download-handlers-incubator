@@ -49,12 +49,20 @@ class TestHttp(CurlCffiDownloadHandlerMixin, TestHttpBase):
     handler_supports_bindaddress_meta = False
     handler_bad_header_handling = "fail"
     handler_supports_idna_rejected_hostnames = False
+    # curl_cffi encodes header values as ASCII
+    handler_supports_utf8_request_headers = False
+    handler_supports_non_utf8_request_headers = False
+    # curl_cffi decodes header values as Latin-1
+    handler_supports_non_utf8_response_headers = False
 
 
 class TestHttps(CurlCffiDownloadHandlerMixin, TestHttpsBase):
     handler_supports_bindaddress_meta = False
     handler_bad_header_handling = "fail"
     handler_supports_idna_rejected_hostnames = False
+    handler_supports_utf8_request_headers = False
+    handler_supports_non_utf8_request_headers = False
+    handler_supports_non_utf8_response_headers = False
     handler_supports_tls_logging = False
     handler_supports_keylogging = False
 
@@ -113,6 +121,13 @@ class TestHttpsWithCrawler(TestHttpWithCrawler):
     async def test_response_ssl_certificate(self, mockserver: MockServer) -> None:
         pass
 
+    @pytest.mark.skip(reason="response.certificate is not implemented")
+    @coroutine_test
+    async def test_response_ssl_certificate_empty_body(
+        self, mockserver: MockServer
+    ) -> None:
+        pass
+
 
 class TestHttpProxy(CurlCffiDownloadHandlerMixin, TestHttpProxyBase):
     expected_http_proxy_request_body = b"http://example.com/"
@@ -124,7 +139,9 @@ class TestHttpsProxy(CurlCffiDownloadHandlerMixin, TestHttpProxyBase):
 
 
 class TestMitmProxy(CurlCffiDownloadHandlerMixin, TestMitmProxyBase):
-    pass
+    handler_supports_proxy_headers = False
+    # HTTP destinations fail with "curl: (27)", HTTPS ones work
+    handler_supports_ipv6_destination = False
 
 
 @pytest.mark.requires_internet

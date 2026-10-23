@@ -8,7 +8,6 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.x509 import load_pem_x509_certificate
 from OpenSSL import SSL
 from scrapy.core.downloader.tls import _TWISTED_VERSION_MAP
-from scrapy.utils.python import to_bytes
 from scrapy.utils.ssl import _get_cert_options_version_kwargs
 from twisted.internet.ssl import CertificateOptions, ContextFactory
 
@@ -50,5 +49,5 @@ def ssl_context_factory(
         ctx = factory.getContext()
         # disabling TLS1.3 because it unconditionally enables some strong ciphers
         ctx.set_options(SSL.OP_CIPHER_SERVER_PREFERENCE | SSL.OP_NO_TLSv1_3)
-        ctx.set_cipher_list(to_bytes(cipher_string))
+        ctx.set_cipher_list(cipher_string.encode())
     return cast("ContextFactory", factory)
