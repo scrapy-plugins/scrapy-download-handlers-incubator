@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 from scrapy import Request
-from scrapy.exceptions import DownloadFailedError
 from scrapy.utils.misc import build_from_crawler
 from scrapy.utils.test import get_crawler
 
@@ -107,7 +106,6 @@ class TestHttps(HttpxDownloadHandlerMixin, TestHttpsBase):
 @pytest.mark.skipif(not HAS_HTTP2, reason="No HTTP/2 support in HttpxDownloadHandler")
 class TestHttp2(TestHttps):
     http2 = True
-    handler_supports_http2_dataloss = False
 
     default_handler_settings: ClassVar[dict[str, Any]] = {
         "HTTPX_HTTP2_ENABLED": True,
@@ -119,13 +117,6 @@ class TestHttp2(TestHttps):
         async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
         assert response.protocol == "HTTP/2"
-
-    @coroutine_test
-    async def test_data_loss_handling(self, mockserver: MockServer) -> None:
-        request = Request(mockserver.url("/broken", is_secure=self.is_secure))
-        async with self.get_dh() as download_handler:
-            with pytest.raises(DownloadFailedError):
-                await download_handler.download_request(request)
 
 
 class TestSimpleHttps(HttpxDownloadHandlerMixin, TestSimpleHttpsBase):
@@ -201,6 +192,35 @@ class TestMitmProxy(HttpxDownloadHandlerMixin, TestMitmProxyBase):
 @pytest.mark.requires_internet
 class TestRealWebsite(HttpxDownloadHandlerMixin, TestRealWebsiteBase):
     pass
+
+
+@coroutine_test
+async def test_proxy_clients() -> None:
+    proxy = "http://proxy.example:8080"
+    handler = build_from_crawler(HttpxDownloadHandler, get_crawler())
+    try:
+        client = handler._get_client(proxy, (("X-A", "1"),))
+        assert handler._get_client(proxy, (("X-A", "1"),)) is client
+        assert handler._get_client(proxy, (("X-A", "2"),)) is not client
+        assert handler._get_client(proxy) is not client
+        assert len(handler._proxy_clients) == 3
+    finally:
+        await handler.close()
+
+
+@coroutine_test
+async def test_proxy_headers_ignored_for_socks(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    if not HAS_SOCKS:  # pragma: no cover
+        pytest.skip("SOCKS support is not installed")
+    handler = build_from_crawler(HttpxDownloadHandler, get_crawler())
+    try:
+        with caplog.at_level("WARNING"):
+            handler._get_client("socks5://proxy.example:1080", (("X-A", "1"),))
+    finally:
+        await handler.close()
+    assert "the SOCKS protocol has no headers" in caplog.text
 
 
 @pytest.mark.parametrize(("concurrency", "expected"), [(16, 16), (0, None)])

@@ -69,6 +69,7 @@ if TYPE_CHECKING:
 
 
 BadHeaderHandling = Literal["skip-bad", "skip-rest", "fail"]
+NonUtf8RequestHeaderHandling = Literal["send", "replace"]
 
 
 class TestHttpBase(ABC):
@@ -82,19 +83,25 @@ class TestHttpBase(ABC):
     # characters that are invalid per RFC 3986 (needed for the verbatim_url
     # request meta key)
     handler_supports_verbatim_urls: bool = True
-    # RFC 9113 §8.1.1 explicitly says that a Content-Length mismatch is a
-    # stream error (of type PROTOCOL_ERROR) so the client will send
-    # RST_STREAM. Some libraries do only this while e.g. h2 also closes the
-    # connection (see handling of ProtocolError in
-    # h2.connection.H2Connection.receive_data()), thus closing all streams that
-    # were using it, and we handle this as a normal exception.
-    handler_supports_http2_dataloss: bool = True
     # whether the handler sends a request Content-Length header as is, instead
     # of building its own (https://github.com/scrapy/scrapy/issues/4919)
     handler_supports_custom_content_length: bool = True
     # whether the handler can request hostnames that the idna package rejects
     # (see IDNA_REJECTED_HOSTNAMES)
     handler_supports_idna_rejected_hostnames: bool = True
+    # What the handler does with a request header value that is not valid
+    # UTF-8:
+    # "send": the value is sent as it is;
+    # "replace": the invalid bytes are replaced with U+FFFD, with a warning.
+    handler_non_utf8_request_header_handling: NonUtf8RequestHeaderHandling = "send"
+    # whether the handler sends non-ASCII UTF-8 request header values correctly
+    handler_supports_utf8_request_headers: bool = True
+    # whether the handler can send request header values that are not valid
+    # UTF-8 at all (see handler_non_utf8_request_header_handling for how)
+    handler_supports_non_utf8_request_headers: bool = True
+    # whether the handler keeps the bytes of response header values that are
+    # not valid UTF-8
+    handler_supports_non_utf8_response_headers: bool = True
     # What the handler does with a bad response header line, e.g. one with no
     # colon in it:
     # "skip-bad": the bad line is skipped and the header lines that follow it
@@ -287,6 +294,43 @@ class TestHttpBase(ABC):
         # assert body["headers"]["X-Custom-Header"] == ["foo", "bar"]
 
     @coroutine_test
+    async def test_request_header_utf8(self, mockserver: MockServer) -> None:
+        if not self.handler_supports_utf8_request_headers:
+            pytest.skip("The handler cannot send UTF-8 request headers.")
+        request = Request(
+            mockserver.url("/echo", is_secure=self.is_secure),
+            headers={"X-Custom-Header": "café"},
+        )
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.status == HTTPStatus.OK
+        body = json.loads(response.body.decode())
+        assert body["headers"]["X-Custom-Header"] == ["café"]
+
+    @coroutine_test
+    async def test_request_header_non_utf8(
+        self, caplog: pytest.LogCaptureFixture, mockserver: MockServer
+    ) -> None:
+        if not self.handler_supports_non_utf8_request_headers:
+            pytest.skip("The handler cannot send non-UTF-8 request headers.")
+        request = Request(
+            mockserver.url("/echo", is_secure=self.is_secure),
+            headers={"X-Custom-Header": b"caf\xe9"},
+        )
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.status == HTTPStatus.OK
+        body = json.loads(response.body.decode())
+        # the mockserver decodes invalid UTF-8 with surrogateescape
+        received = [
+            value.encode("utf-8", "surrogateescape")
+            for value in body["headers"]["X-Custom-Header"]
+        ]
+        replaced = self.handler_non_utf8_request_header_handling == "replace"
+        assert received == [b"caf\xef\xbf\xbd" if replaced else b"caf\xe9"]
+        assert ("is not valid UTF-8" in caplog.text) == replaced
+
+    @coroutine_test
     async def test_server_receives_no_extra_headers(
         self, mockserver: MockServer
     ) -> None:
@@ -322,6 +366,25 @@ class TestHttpBase(ABC):
         assert response.status == HTTPStatus.OK
         body = json.loads(response.body.decode())
         assert json.loads(body["body"]) == request_body
+
+    @coroutine_test
+    async def test_download_response_header_non_utf8(
+        self, mockserver: MockServer
+    ) -> None:
+        if not self.handler_supports_non_utf8_response_headers:
+            pytest.skip("The handler cannot keep non-UTF-8 response headers.")
+        value = b"caf\xe9"
+        request = Request(
+            mockserver.url("/response-headers", is_secure=self.is_secure),
+            headers={"content-type": "application/json"},
+            body=json.dumps(
+                {"X-Custom-Header": value.decode("utf-8", "surrogateescape")}
+            ),
+        )
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.status == 200
+        assert response.headers.getlist("X-Custom-Header") == [value]
 
     @coroutine_test
     async def test_download_has_correct_response_headers(
@@ -476,7 +539,9 @@ class TestHttpBase(ABC):
 
         real_aiodns_getaddrinfo = aiodns.DNSResolver.getaddrinfo
 
-        def aiodns_getaddrinfo(self, host, *args, **kwargs):
+        def aiodns_getaddrinfo(
+            self: aiodns.DNSResolver, host: str, *args: Any, **kwargs: Any
+        ) -> Any:
             return real_aiodns_getaddrinfo(self, "127.0.0.1", *args, **kwargs)
 
         # aiohttp resolves through aiodns (when it is installed), which uses
@@ -872,8 +937,6 @@ class TestHttpBase(ABC):
 
     @coroutine_test
     async def test_download_cause_data_loss(self, mockserver: MockServer) -> None:
-        if self.http2 and not self.handler_supports_http2_dataloss:
-            pytest.skip("This handler doesn't support dataloss on HTTP/2")
         request = Request(mockserver.url("/broken", is_secure=self.is_secure))
         async with self.get_dh() as download_handler:
             with pytest.raises(ResponseDataLossError):
@@ -883,8 +946,6 @@ class TestHttpBase(ABC):
     async def test_download_cause_data_loss_double_warning(
         self, caplog: pytest.LogCaptureFixture, mockserver: MockServer
     ) -> None:
-        if self.http2 and not self.handler_supports_http2_dataloss:
-            pytest.skip("This handler doesn't support dataloss on HTTP/2")
         request = Request(mockserver.url("/broken", is_secure=self.is_secure))
         async with self.get_dh() as download_handler:
             with pytest.raises(ResponseDataLossError):
@@ -900,8 +961,6 @@ class TestHttpBase(ABC):
     async def test_download_allow_data_loss_broken(
         self, mockserver: MockServer
     ) -> None:
-        if self.http2 and not self.handler_supports_http2_dataloss:
-            pytest.skip("This handler doesn't support dataloss on HTTP/2")
         request = Request(
             mockserver.url("/broken", is_secure=self.is_secure),
             meta={"download_fail_on_dataloss": False},
@@ -930,8 +989,6 @@ class TestHttpBase(ABC):
     async def test_download_allow_data_loss_via_setting(
         self, mockserver: MockServer
     ) -> None:
-        if self.http2 and not self.handler_supports_http2_dataloss:
-            pytest.skip("This handler doesn't support dataloss on HTTP/2")
         request = Request(mockserver.url("/broken", is_secure=self.is_secure))
         async with self.get_dh(
             {"DOWNLOAD_FAIL_ON_DATALOSS": False}
@@ -1723,6 +1780,8 @@ class TestMitmProxyBase(ABC):
     proxy_host: str = "127.0.0.1"
     # whether the handler supports HTTPS proxies with HTTPS destinations
     handler_supports_tls_in_tls: bool = True
+    # whether the handler supports the proxy_headers request meta key
+    handler_supports_proxy_headers: bool = True
 
     @property
     @abstractmethod
@@ -1846,6 +1905,40 @@ class TestMitmProxyBase(ABC):
         assert responses[0].url == mockserver.url("/redirected", is_secure=https_dest)
         self._assert_got_response_code(200, caplog.text)
         self._assert_headers(responses[0].headers, https_dest)
+
+    @pytest.mark.parametrize("proxy_server", ["http", "https"], indirect=True)
+    @pytest.mark.parametrize(
+        "https_dest", [False, True], ids=["HTTP dest", "HTTPS dest"]
+    )
+    @coroutine_test
+    async def test_proxy_headers(
+        self,
+        proxy_server: str,
+        mockserver: MockServer,
+        https_dest: bool,
+    ) -> None:
+        """HTTP/HTTPS proxy, HTTP or HTTPS destination, headers for the proxy.
+
+        The proxy echoes the X-Proxy-Echo header that it receives into the
+        response, and /echo reports the headers that the target server got.
+        """
+        if not self.handler_supports_proxy_headers:
+            pytest.skip("The proxy_headers request meta key is not supported.")
+        self._maybe_skip(proxy_server, https_dest)
+        request = Request(
+            mockserver.url("/echo", is_secure=https_dest),
+            meta={"proxy_headers": {"X-Proxy-Echo": "foo"}},
+        )
+        crawler = get_crawler(SingleRequestSpider, self.settings_dict)
+        await crawler.crawl_async(seed=request)
+        assert isinstance(crawler.spider, SingleRequestSpider)
+        response = crawler.spider.meta["responses"][0]
+        assert response.headers.get(b"X-Proxy-Echo") == b"foo"
+        if https_dest:
+            # the tunnel keeps the headers for the proxy away from the target
+            # server; without one that is up to the proxy, and mitmproxy, which
+            # knows nothing about this header, does pass it on
+            assert "X-Proxy-Echo" not in json.loads(response.text)["headers"]
 
     @pytest.mark.skipif(
         not ipv6_loopback_available(), reason="IPv6 loopback is not available"

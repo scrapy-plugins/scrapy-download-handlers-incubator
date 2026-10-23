@@ -48,6 +48,9 @@ class TestHttp(PyreqwestDownloadHandlerMixin, TestHttpBase):
     handler_supports_bindaddress_meta = False
     handler_bad_header_handling = "fail"
     handler_supports_idna_rejected_hostnames = False
+    # pyreqwest only takes str header values and only returns them as str
+    handler_supports_non_utf8_request_headers = False
+    handler_supports_non_utf8_response_headers = False
     always_present_req_headers = frozenset({"Accept", "User-Agent"})
 
     @pytest.mark.skipif(
@@ -81,6 +84,8 @@ class TestHttps(PyreqwestDownloadHandlerMixin, TestHttpsBase):
     handler_supports_tls_logging = False
     handler_bad_header_handling = "fail"
     handler_supports_idna_rejected_hostnames = False
+    handler_supports_non_utf8_request_headers = False
+    handler_supports_non_utf8_response_headers = False
     handler_supports_keylogging = False
     always_present_req_headers = TestHttp.always_present_req_headers
 
