@@ -122,7 +122,7 @@ filterwarnings = [
     "ignore:.*<function (_SelectorTransport|_ProactorBasePipeTransport|_ProactorSocketTransport|BaseEventLoop)\\.__del__:pytest.PytestUnraisableExceptionWarning",
     "ignore:unclosed transport <:ResourceWarning",
     # nothing we can do
-    "ignore:Make sure you are using https over https proxy:curl_cffi.utils.CurlCffiWarning",
+    "ignore:Make sure you are using https over https proxy:UserWarning:curl_cffi",
 ]
 strict = true
 
