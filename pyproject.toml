@@ -30,6 +30,7 @@ classifiers = [
 requires-python = ">=3.11"
 dependencies = [
     "Scrapy>=2.19,<2.20",
+    "aiodns>=3.3.0",
 ]
 
 [project.optional-dependencies]
