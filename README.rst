@@ -120,10 +120,6 @@ Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 TLS implementation             Standard library ``ssl``
 ============================== ========================================
 
-Other limitations:
-
-* HTTPS proxies for HTTPS destinations are not supported on Python < 3.11.
-
 Notable features supported by the library but not implemented:
 
 * DNS resolving settings
@@ -213,7 +209,7 @@ Features and limitations
 
 ============================== ========================================
 HTTP proxies                   Yes
-SOCKS proxies                  Yes (SOCKS5; requires ``httpx[socks]``)
+SOCKS proxies                  Yes (SOCKS5; requires ``httpx2[socks]``)
 HTTP/2                         Yes (requires ``httpx2[http2]``)
 HTTP/3                         No (not supported by the library)
 TLS verbose logging            Yes
