@@ -42,8 +42,8 @@ if TYPE_CHECKING:
     from tests.mockserver.proxy_echo import ProxyEchoMockServer
 
 
-if find_spec("httpx2") is None and find_spec("httpx") is None:
-    pytest.skip("Neither httpx2 nor httpx are installed", allow_module_level=True)
+if find_spec("httpx2") is None:
+    pytest.skip("httpx2 is not installed", allow_module_level=True)
 
 # httpx2 < 2.4.0 reads URL.host through idna.decode() without display=True when
 # building the Host header, which raises for punycode labels that IDNA 2008

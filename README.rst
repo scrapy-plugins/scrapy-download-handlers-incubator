@@ -191,16 +191,12 @@ HttpxDownloadHandler
 
 This is an updated copy of the official
 ``scrapy.core.downloader.handlers._httpx.HttpxDownloadHandler`` handler. It
-supports HTTP/1.1 and HTTP/2 and uses the httpx2_ library or the httpx_
-library.
+supports HTTP/1.1 and HTTP/2 and uses the httpx2_ library.
 
 Install it with:
 
 .. code:: bash
 
-    # this will install httpx2
-    pip install scrapy-download-handlers-incubator[httpx2]
-    # this will install httpx
     pip install scrapy-download-handlers-incubator[httpx]
 
 Enable it with:
@@ -218,7 +214,7 @@ Features and limitations
 ============================== ========================================
 HTTP proxies                   Yes
 SOCKS proxies                  Yes (SOCKS5; requires ``httpx[socks]``)
-HTTP/2                         Yes (requires ``httpx[http2]``)
+HTTP/2                         Yes (requires ``httpx2[http2]``)
 HTTP/3                         No (not supported by the library)
 TLS verbose logging            Yes
 ``response.ip_address``        Yes
@@ -231,7 +227,7 @@ TLS implementation             Standard library ``ssl``
 Other limitations:
 
 * The handler creates a separate connection pool for each proxy URL (due to
-  limitations of ``httpx``) which may lead to higher resource usage when
+  limitations of ``httpx2``) which may lead to higher resource usage when
   using proxy rotation.
 
 Notable features supported by the library but not implemented:
@@ -246,7 +242,6 @@ Settings
   HTTP/2.
 
 .. _httpx2: https://httpx2.pydantic.dev/
-.. _httpx: https://www.python-httpx.org/
 
 NiquestsDownloadHandler
 -----------------------

@@ -37,7 +37,6 @@ jobs:
         - {os: ubuntu-latest, tox: {python: "3.14", toxenv: py-aiohttp}}
         - {os: ubuntu-latest, tox: {python: "3.14", toxenv: py-curlcffi}}
         - {os: ubuntu-latest, tox: {python: "3.14", toxenv: py-httpx}}
-        - {os: ubuntu-latest, tox: {python: "3.14", toxenv: py-httpx2}}
         - {os: ubuntu-latest, tox: {python: "3.14", toxenv: py-niquests}}
         - {os: ubuntu-latest, tox: {python: "3.14", toxenv: py-pyreqwest}}
 

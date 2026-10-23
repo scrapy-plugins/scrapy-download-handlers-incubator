@@ -36,10 +36,7 @@ if TYPE_CHECKING:
 HAS_SOCKS = HAS_HTTP2 = False
 
 try:
-    try:
-        import httpx2 as httpx
-    except ImportError:  # pragma: no cover
-        import httpx  # type: ignore[import-not-found,no-redef]
+    import httpx2 as httpx
 except ImportError:  # pragma: no cover
     httpx = None  # type: ignore[assignment]
 else:
