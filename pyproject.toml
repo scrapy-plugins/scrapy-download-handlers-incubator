@@ -26,6 +26,7 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 requires-python = ">=3.11"
 dependencies = [
@@ -107,7 +108,21 @@ markers = [
     "requires_internet: marks tests that need real Internet access",
 ]
 filterwarnings = [
+    "error",
     "ignore::DeprecationWarning:twisted.web.static",
+    # The asyncio reactor leaves client sockets and transports open on
+    # teardown. These surface as unraisable exceptions during finalization when
+    # collected outside any warnings-catching block, or as a plain
+    # ResourceWarning, re-emitted by pytest.warns() with the outer filters
+    # applied, when GC instead runs while a pytest.warns() block for an
+    # unrelated warning is active, failing that unrelated test. The message
+    # wording varies across Python versions, so match on the object repr.
+    "ignore:.*<socket\\.socket fd=:pytest.PytestUnraisableExceptionWarning",
+    "ignore:unclosed <socket\\.socket fd=:ResourceWarning",
+    "ignore:.*<function (_SelectorTransport|_ProactorBasePipeTransport|_ProactorSocketTransport|BaseEventLoop)\\.__del__:pytest.PytestUnraisableExceptionWarning",
+    "ignore:unclosed transport <:ResourceWarning",
+    # nothing we can do
+    "ignore:Make sure you are using https over https proxy:curl_cffi.utils.CurlCffiWarning",
 ]
 strict = true
 
