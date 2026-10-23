@@ -133,6 +133,11 @@ class TestHttpWithCrawler(PyreqwestDownloadHandlerMixin, TestHttpWithCrawlerBase
     async def test_response_ip_address(self, mockserver: MockServer) -> None:
         pass
 
+    @pytest.mark.skip(reason="response.ip_address is not implemented")
+    @coroutine_test
+    async def test_response_ip_address_empty_body(self, mockserver: MockServer) -> None:
+        pass
+
 
 class TestHttpsWithCrawler(TestHttpWithCrawler):
     is_secure = True
@@ -140,6 +145,13 @@ class TestHttpsWithCrawler(TestHttpWithCrawler):
     @pytest.mark.skip(reason="response.certificate is not implemented")
     @coroutine_test
     async def test_response_ssl_certificate(self, mockserver: MockServer) -> None:
+        pass
+
+    @pytest.mark.skip(reason="response.certificate is not implemented")
+    @coroutine_test
+    async def test_response_ssl_certificate_empty_body(
+        self, mockserver: MockServer
+    ) -> None:
         pass
 
 

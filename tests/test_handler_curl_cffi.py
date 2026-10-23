@@ -113,6 +113,13 @@ class TestHttpsWithCrawler(TestHttpWithCrawler):
     async def test_response_ssl_certificate(self, mockserver: MockServer) -> None:
         pass
 
+    @pytest.mark.skip(reason="response.certificate is not implemented")
+    @coroutine_test
+    async def test_response_ssl_certificate_empty_body(
+        self, mockserver: MockServer
+    ) -> None:
+        pass
+
 
 class TestHttpProxy(CurlCffiDownloadHandlerMixin, TestHttpProxyBase):
     expected_http_proxy_request_body = b"http://example.com/"
@@ -124,7 +131,8 @@ class TestHttpsProxy(CurlCffiDownloadHandlerMixin, TestHttpProxyBase):
 
 
 class TestMitmProxy(CurlCffiDownloadHandlerMixin, TestMitmProxyBase):
-    pass
+    # HTTP destinations fail with "curl: (27)", HTTPS ones work
+    handler_supports_ipv6_destination = False
 
 
 @pytest.mark.requires_internet

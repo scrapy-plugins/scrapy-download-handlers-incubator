@@ -12,6 +12,7 @@ from scrapy.utils.test import get_crawler
 
 from scrapy_download_handlers_incubator import HttpxDownloadHandler
 from scrapy_download_handlers_incubator.handlers.httpx import (  # type: ignore[attr-defined]
+    HAS_HTTP2,
     HAS_SOCKS,
     httpx,
 )
@@ -103,6 +104,7 @@ class TestHttps(HttpxDownloadHandlerMixin, TestHttpsBase):
     tls_log_message = "SSL connection to 127.0.0.1 using protocol TLSv1.3, cipher"
 
 
+@pytest.mark.skipif(not HAS_HTTP2, reason="No HTTP/2 support in HttpxDownloadHandler")
 class TestHttp2(TestHttps):
     http2 = True
     handler_supports_http2_dataloss = False
@@ -190,6 +192,10 @@ class TestHttpsProxy(TestHttpProxy):
 
 class TestMitmProxy(HttpxDownloadHandlerMixin, TestMitmProxyBase):
     handler_supports_socks = HAS_SOCKS
+    # httpx sends an unbracketed IPv6 authority to the proxy, so the proxy
+    # answers 400; reproducible with httpx alone, without Scrapy involved.
+    # https://github.com/pydantic/httpx2/pull/1091
+    handler_supports_ipv6_destination = False
 
 
 @pytest.mark.requires_internet
@@ -205,5 +211,54 @@ async def test_pool_limits(concurrency: int, expected: int | None) -> None:
     try:
         assert handler._limits.max_connections == expected
         assert handler._limits.max_keepalive_connections == expected
+    finally:
+        await handler.close()
+
+
+class StableHandler(HttpxDownloadHandler):
+    experimental = False
+
+
+@pytest.mark.parametrize(
+    ("handler_cls", "expected"), [(HttpxDownloadHandler, True), (StableHandler, False)]
+)
+@coroutine_test
+async def test_experimental_warning(
+    handler_cls: type[HttpxDownloadHandler],
+    expected: bool,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    handler = build_from_crawler(handler_cls, get_crawler())
+    await handler.close()
+    assert ("is experimental" in caplog.text) is expected
+
+
+@coroutine_test
+async def test_proxies_not_supported() -> None:
+    class NoProxyHandler(HttpxDownloadHandler):
+        supports_proxies = False
+
+    crawler = get_crawler()
+    handler = build_from_crawler(NoProxyHandler, crawler)
+    request = Request("http://example.com", meta={"proxy": "http://proxy.example:8080"})
+    try:
+        with pytest.raises(NotImplementedError, match="doesn't support proxies"):
+            await handler.download_request(request)
+    finally:
+        await handler.close()
+
+
+@coroutine_test
+async def test_non_basic_proxy_auth() -> None:
+    crawler = get_crawler()
+    handler = build_from_crawler(HttpxDownloadHandler, crawler)
+    request = Request(
+        "http://example.com",
+        meta={"proxy": "http://proxy.example:8080"},
+        headers={"Proxy-Authorization": "Digest deadbeef"},
+    )
+    try:
+        with pytest.raises(ValueError, match="got Digest"):
+            await handler.download_request(request)
     finally:
         await handler.close()

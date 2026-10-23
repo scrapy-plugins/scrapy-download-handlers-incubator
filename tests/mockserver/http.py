@@ -15,6 +15,7 @@ from .http_resources import (
     ChunkedResource,
     ClientIPResource,
     Compress,
+    ConnectionId,
     ContentLengthHeaderResource,
     Delay,
     Drop,
@@ -55,6 +56,7 @@ class Root(BaseResource):
         put_child(self, b"payload", PayloadResource())
         put_child(self, b"alpayload", ArbitraryLengthPayloadResource())
         put_child(self, b"text", Data(b"Works", "text/plain"))
+        put_child(self, b"connection-id", ConnectionId())
         put_child(self, b"redirect", Redirect(b"/redirected"))
         put_child(self, b"redirected", Data(b"Redirected here", "text/plain"))
         put_child(self, b"wait", ForeverTakingResource())
