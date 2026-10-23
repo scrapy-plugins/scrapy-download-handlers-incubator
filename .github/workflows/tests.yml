@@ -63,6 +63,7 @@ jobs:
     - name: Run tests
       env:
         TOXENV: ${{ matrix.tox.toxenv }}
+        UV_PYTHON_PREFERENCE: only-system
       run: uvx --with tox-uv tox
 
     - name: Upload coverage report
