@@ -29,16 +29,16 @@ jobs:
         - {python: "3.12", toxenv: py-all}
         - {python: "3.13", toxenv: py-all}
         - {python: "3.14", toxenv: py-all}
-        - {python: "3.15.0-rc.2", toxenv: py-all}
+        - {python: "3.15", toxenv: py-all}
         - {python: "3.11", toxenv: py-pinned}
         - {python: "3.11", toxenv: py-pinned-noreactor}
-        - {python: "3.14", toxenv: py-all-noreactor}
+        - {python: "3.15", toxenv: py-all-noreactor}
         include:
-        - {os: ubuntu-latest, tox: {python: "3.14", toxenv: py-aiohttp}}
-        - {os: ubuntu-latest, tox: {python: "3.14", toxenv: py-curlcffi}}
-        - {os: ubuntu-latest, tox: {python: "3.14", toxenv: py-httpx}}
-        - {os: ubuntu-latest, tox: {python: "3.14", toxenv: py-niquests}}
-        - {os: ubuntu-latest, tox: {python: "3.14", toxenv: py-pyreqwest}}
+        - {os: ubuntu-latest, tox: {python: "3.15", toxenv: py-aiohttp}}
+        - {os: ubuntu-latest, tox: {python: "3.15", toxenv: py-curlcffi}}
+        - {os: ubuntu-latest, tox: {python: "3.15", toxenv: py-httpx}}
+        - {os: ubuntu-latest, tox: {python: "3.15", toxenv: py-niquests}}
+        - {os: ubuntu-latest, tox: {python: "3.15", toxenv: py-pyreqwest}}
 
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -58,7 +58,7 @@ jobs:
           tox.toml
 
     - name: Install mitmproxy
-      run: uv tool install --python 3.14 mitmproxy
+      run: uv tool install --python 3.15 mitmproxy
 
     - name: Run tests
       env:
