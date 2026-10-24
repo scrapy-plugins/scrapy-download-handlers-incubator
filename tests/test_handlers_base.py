@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import gzip
 import json
 import logging
@@ -1259,12 +1260,17 @@ class TestHttpsBase(TestHttpBase, ABC):
         async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
         assert response.body == b"Works"
-        # The stdlib writes a comment line at the top of the file.
-        lines = [
-            line
-            for line in keylog_file.read_text().splitlines()
-            if not line.startswith("#")
-        ]
+        lines: list[str] = []
+        for _ in range(100):
+            # The stdlib writes a comment line at the top of the file.
+            lines = [
+                line
+                for line in keylog_file.read_text().splitlines()
+                if not line.startswith("#")
+            ]
+            if lines:
+                break
+            await asyncio.sleep(0.01)
         assert lines
         assert all(len(line.split()) == 3 for line in lines)
 
