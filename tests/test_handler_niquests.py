@@ -4,8 +4,13 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 from scrapy import Request
+from scrapy.utils.misc import build_from_crawler
+from scrapy.utils.test import get_crawler
 
 from scrapy_download_handlers_incubator import NiquestsDownloadHandler
+from scrapy_download_handlers_incubator.handlers.niquests import (  # type: ignore[attr-defined]
+    niquests,
+)
 from tests.test_handlers_base import (
     TestHttpBase,
     TestHttpProxyBase,
@@ -155,9 +160,60 @@ class TestHttpsProxy(NiquestsDownloadHandlerMixin, TestHttpProxyBase):
 
 
 class TestMitmProxy(NiquestsDownloadHandlerMixin, TestMitmProxyBase):
-    handler_supports_proxy_headers = False
+    pass
 
 
 @pytest.mark.requires_internet
 class TestRealWebsite(NiquestsDownloadHandlerMixin, TestRealWebsiteBase):
     pass
+
+
+@coroutine_test
+async def test_proxy_header_sessions() -> None:
+    proxy = "http://proxy.example:8080"
+    handler = build_from_crawler(NiquestsDownloadHandler, get_crawler())
+    try:
+        session = handler._get_session(proxy, (("X-A", "1"),))
+        assert session is not handler._session
+        assert handler._get_session(proxy, (("X-A", "1"),)) is session
+        assert (
+            handler._get_session("http://other.example:8080", (("X-A", "1"),))
+            is session
+        )
+        assert handler._get_session(proxy, (("X-A", "2"),)) is not session
+        assert handler._get_session(proxy) is handler._session
+        assert handler._get_session(None, (("X-A", "1"),)) is handler._session
+        assert len(handler._proxy_header_sessions) == 2
+    finally:
+        await handler.close()
+
+
+@coroutine_test
+async def test_proxy_headers_ignored_for_socks(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    proxy = "socks5://proxy.example:1080"
+    handler = build_from_crawler(NiquestsDownloadHandler, get_crawler())
+    try:
+        with caplog.at_level("WARNING"):
+            assert handler._get_session(proxy, (("X-A", "1"),)) is handler._session
+            assert handler._get_session(proxy, (("X-A", "1"),)) is handler._session
+    finally:
+        await handler.close()
+    assert caplog.text.count("the SOCKS protocol has no headers") == 1
+
+
+@coroutine_test
+async def test_proxy_headers_replace_proxy_authorization() -> None:
+    handler = build_from_crawler(NiquestsDownloadHandler, get_crawler())
+    try:
+        session = handler._get_session(
+            "http://proxy.example:8080", (("proxy-authorization", "Custom x"),)
+        )
+        adapter = session.get_adapter("http://example.com")
+        assert isinstance(adapter, niquests.adapters.AsyncHTTPAdapter)
+        assert adapter.proxy_headers("http://user:pass@proxy.example:8080") == {
+            "proxy-authorization": "Custom x"
+        }
+    finally:
+        await handler.close()

@@ -24,9 +24,12 @@ from scrapy.utils.ssl import (
     _make_insecure_ssl_ctx,
 )
 
+from scrapy_download_handlers_incubator.utils import get_proxy_headers
+
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
 if TYPE_CHECKING:
+    import ssl
     from collections.abc import AsyncIterator
 
     from scrapy import Request
@@ -61,14 +64,27 @@ class NiquestsDownloadHandler(_Base):
         self._verify_certificates: bool = crawler.settings.getbool(
             "DOWNLOAD_VERIFY_CERTIFICATES"
         )
-        enable_h2 = crawler.settings.getbool("NIQUESTS_HTTP2_ENABLED")
-        tls_min, tls_max = _get_tls_version_limits(
-            crawler.settings, _STDLIB_VERSION_MAP.__getitem__
+        self._enable_h2: bool = crawler.settings.getbool("NIQUESTS_HTTP2_ENABLED")
+        self._tls_limits: tuple[ssl.TLSVersion | None, ssl.TLSVersion | None] = (
+            _get_tls_version_limits(crawler.settings, _STDLIB_VERSION_MAP.__getitem__)
         )
-        self._session = niquests.AsyncSession(
+        self._session: niquests.AsyncSession = self._make_session()
+        # niquests creates a proxy manager, which holds the proxy headers, per
+        # proxy URL, so we keep a session per set of proxy headers. LRU
+        # eviction can be added here if needed.
+        self._proxy_header_sessions: dict[
+            tuple[tuple[str, str], ...], niquests.AsyncSession
+        ] = {}
+        self._warned_socks_proxy_headers: bool = False
+
+    def _make_session(
+        self, proxy_headers: tuple[tuple[str, str], ...] = ()
+    ) -> niquests.AsyncSession:
+        tls_min, tls_max = self._tls_limits
+        session = niquests.AsyncSession(
             headers={},
             source_address=self._bind_address,
-            disable_http2=not enable_h2,
+            disable_http2=not self._enable_h2,
             disable_http3=True,
             # number of host buckets in the pool (older extra ones are discarded)
             pool_connections=self._pool_size_total,
@@ -81,7 +97,7 @@ class NiquestsDownloadHandler(_Base):
                 max_version=tls_max,
             ),
         )
-        self._session.trust_env = False
+        session.trust_env = False
         if not self._verify_certificates:
             # Ugly hack to skip proxy certificate verification, may be not worth it.
             # The official docs suggest passing the CA bundle via an envvar but that
@@ -99,11 +115,61 @@ class NiquestsDownloadHandler(_Base):
                 proxy_kwargs["ssl_context"] = proxy_ctx
                 return orig_proxy_manager_for(self_, proxy, **proxy_kwargs)  # type: ignore[no-any-return]
 
-            for adapter in self._session.adapters.values():
+            for adapter in session.adapters.values():
                 if isinstance(adapter, niquests.adapters.AsyncHTTPAdapter):
                     adapter.proxy_manager_for = MethodType(  # type: ignore[method-assign]
                         proxy_manager_for_no_verify, adapter
                     )
+        if proxy_headers:
+            # urllib3 encodes proxy header values as latin-1
+            extra_headers: dict[str, str] = {}
+            for name, value in proxy_headers:
+                latin1_value = value.encode().decode("latin-1")
+                if name in extra_headers:
+                    extra_headers[name] += f",{latin1_value}"
+                else:
+                    extra_headers[name] = latin1_value
+            extra_names = {name.lower() for name in extra_headers}
+            orig_proxy_headers = niquests.adapters.AsyncHTTPAdapter.proxy_headers
+
+            def proxy_headers_with_extra(
+                self_: niquests.adapters.AsyncHTTPAdapter, proxy: str
+            ) -> dict[str, str]:
+                headers = {
+                    name: value
+                    for name, value in orig_proxy_headers(self_, proxy).items()
+                    if name.lower() not in extra_names
+                }
+                headers.update(extra_headers)
+                return headers
+
+            for adapter in session.adapters.values():
+                if isinstance(adapter, niquests.adapters.AsyncHTTPAdapter):
+                    adapter.proxy_headers = MethodType(  # type: ignore[method-assign]
+                        proxy_headers_with_extra, adapter
+                    )
+        return session
+
+    def _get_session(
+        self,
+        proxy_url: str | None,
+        proxy_headers: tuple[tuple[str, str], ...] = (),
+    ) -> niquests.AsyncSession:
+        if not proxy_url or not proxy_headers:
+            return self._session
+        if proxy_url.startswith("socks"):
+            if not self._warned_socks_proxy_headers:
+                logger.warning(
+                    "Ignoring the proxy_headers request metadata key for SOCKS"
+                    " proxies, as the SOCKS protocol has no headers."
+                )
+                self._warned_socks_proxy_headers = True
+            return self._session
+        if cached := self._proxy_header_sessions.get(proxy_headers):
+            return cached
+        session = self._make_session(proxy_headers)
+        self._proxy_header_sessions[proxy_headers] = session
+        return session
 
     @staticmethod
     def _check_deps_installed() -> None:
@@ -129,8 +195,9 @@ class NiquestsDownloadHandler(_Base):
             if values
         }
         proxies = {"http": proxy, "https": proxy} if proxy else None
+        session = self._get_session(proxy, get_proxy_headers(request))
         try:
-            async with await self._session.request(
+            async with await session.request(
                 method=request.method,
                 url=request.url,
                 data=request.body,
@@ -231,3 +298,5 @@ class NiquestsDownloadHandler(_Base):
 
     async def close(self) -> None:
         await self._session.close()
+        for session in self._proxy_header_sessions.values():
+            await session.close()
