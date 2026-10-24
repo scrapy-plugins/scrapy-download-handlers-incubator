@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -48,9 +49,10 @@ class TestHttp(PyreqwestDownloadHandlerMixin, TestHttpBase):
     handler_supports_bindaddress_meta = False
     handler_bad_header_handling = "fail"
     handler_supports_idna_rejected_hostnames = False
-    # pyreqwest only takes str header values and only returns them as str
-    handler_supports_non_utf8_request_headers = False
-    handler_supports_non_utf8_response_headers = False
+    # pyreqwest only takes str header values, sending them as UTF-8, and
+    # cannot read response header values that are not ASCII
+    handler_non_utf8_request_header_handling = "replace"
+    handler_supports_non_ascii_response_headers = False
     always_present_req_headers = frozenset({"Accept", "User-Agent"})
 
     @pytest.mark.skipif(
@@ -71,6 +73,24 @@ class TestHttp(PyreqwestDownloadHandlerMixin, TestHttpBase):
         assert "Ignoring the port" in caplog.text
 
     @coroutine_test
+    async def test_download_response_header_non_ascii(
+        self, caplog: pytest.LogCaptureFixture, mockserver: MockServer
+    ) -> None:
+        """A response header with a value that pyreqwest cannot read is
+        dropped with a warning, but the other ones are kept."""
+        request = Request(
+            mockserver.url("/response-headers"),
+            headers={"content-type": "application/json"},
+            body=json.dumps({"X-Custom-Header": "café", "X-Ascii": "foo"}),
+        )
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.status == 200
+        assert "X-Custom-Header" not in response.headers
+        assert response.headers.getlist("X-Ascii") == [b"foo"]
+        assert "Dropping the x-custom-header response header" in caplog.text
+
+    @coroutine_test
     async def test_unsupported_proxy(self, mockserver: MockServer) -> None:
         meta = {"proxy": "127.0.0.2"}
         request = Request(mockserver.url("/text"), meta=meta)
@@ -84,8 +104,8 @@ class TestHttps(PyreqwestDownloadHandlerMixin, TestHttpsBase):
     handler_supports_tls_logging = False
     handler_bad_header_handling = "fail"
     handler_supports_idna_rejected_hostnames = False
-    handler_supports_non_utf8_request_headers = False
-    handler_supports_non_utf8_response_headers = False
+    handler_non_utf8_request_header_handling = "replace"
+    handler_supports_non_ascii_response_headers = False
     handler_supports_keylogging = False
     always_present_req_headers = TestHttp.always_present_req_headers
 

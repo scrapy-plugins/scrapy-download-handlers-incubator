@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import TYPE_CHECKING, ClassVar, cast
@@ -32,6 +33,8 @@ try:
     import pyreqwest.response
 except ImportError:
     pyreqwest = None  # type: ignore[assignment]
+
+logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
@@ -110,7 +113,7 @@ class PyreqwestDownloadHandler(_Base):
             # don't start reading the body early, which breaks the logic flow
             .streamed_read_buffer_limit(0)
         )
-        headers = self._request_headers(request).to_tuple_list()
+        headers = self._utf8_request_headers(request)
         if request.body:
             rb = rb.body_bytes(request.body)
         elif request.method == "POST" and "Content-Length" not in request.headers:
@@ -141,7 +144,19 @@ class PyreqwestDownloadHandler(_Base):
 
     @staticmethod
     def _extract_headers(response: pyreqwest.response.Response) -> Headers:
-        return Headers(list(response.headers.items()))
+        pairs: list[tuple[str, str]] = []
+        for name in dict.fromkeys(response.headers.keys()):
+            try:
+                values = response.headers.getall(name)
+            except ValueError:
+                # pyreqwest raises for any value that is not ASCII
+                logger.warning(
+                    f"Dropping the {name} response header, as pyreqwest cannot"
+                    f" read header values that are not ASCII."
+                )
+                continue
+            pairs.extend((name, value) for value in values)
+        return Headers(pairs)
 
     @staticmethod
     def _build_base_response_args(

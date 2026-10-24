@@ -117,7 +117,9 @@ class CurlCffiDownloadHandler(_Base):
         timeout: float,  # noqa: ASYNC109
     ) -> AsyncIterator[curl_cffi.Response]:
         proxy = self._extract_proxy_url_with_creds(request)
-        headers = self._request_headers(request).to_tuple_list()
+        headers = curl_cffi.requests.Headers(
+            self._utf8_request_headers(request), encoding="utf-8"
+        )
         response: curl_cffi.Response | None = None
         try:
             response = await self._session.request(
@@ -173,7 +175,7 @@ class CurlCffiDownloadHandler(_Base):
 
     @staticmethod
     def _extract_headers(response: curl_cffi.Response) -> Headers:
-        return Headers(response.headers.multi_items())
+        return Headers(response.headers.raw)
 
     @staticmethod
     def _build_base_response_args(

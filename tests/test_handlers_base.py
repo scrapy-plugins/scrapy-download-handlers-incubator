@@ -94,14 +94,9 @@ class TestHttpBase(ABC):
     # "send": the value is sent as it is;
     # "replace": the invalid bytes are replaced with U+FFFD, with a warning.
     handler_non_utf8_request_header_handling: NonUtf8RequestHeaderHandling = "send"
-    # whether the handler sends non-ASCII UTF-8 request header values correctly
-    handler_supports_utf8_request_headers: bool = True
-    # whether the handler can send request header values that are not valid
-    # UTF-8 at all (see handler_non_utf8_request_header_handling for how)
-    handler_supports_non_utf8_request_headers: bool = True
     # whether the handler keeps the bytes of response header values that are
-    # not valid UTF-8
-    handler_supports_non_utf8_response_headers: bool = True
+    # not ASCII
+    handler_supports_non_ascii_response_headers: bool = True
     # What the handler does with a bad response header line, e.g. one with no
     # colon in it:
     # "skip-bad": the bad line is skipped and the header lines that follow it
@@ -270,6 +265,19 @@ class TestHttpBase(ABC):
         for header_name in request_headers:
             assert header_name not in body["headers"]
 
+    @coroutine_test
+    async def test_request_header_empty(self, mockserver: MockServer) -> None:
+        """A header with an empty value should be sent."""
+        request = Request(
+            mockserver.url("/echo", is_secure=self.is_secure),
+            headers={"X-Custom-Header": ""},
+        )
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.status == HTTPStatus.OK
+        body = json.loads(response.body.decode())
+        assert body["headers"]["X-Custom-Header"] == [""]
+
     @pytest.mark.parametrize(
         "request_headers",
         [
@@ -293,26 +301,26 @@ class TestHttpBase(ABC):
         assert "headers" in body
         # assert body["headers"]["X-Custom-Header"] == ["foo", "bar"]
 
+    # "café" can also be encoded as latin-1, "€" cannot
+    @pytest.mark.parametrize("value", ["café", "€"])
     @coroutine_test
-    async def test_request_header_utf8(self, mockserver: MockServer) -> None:
-        if not self.handler_supports_utf8_request_headers:
-            pytest.skip("The handler cannot send UTF-8 request headers.")
+    async def test_request_header_utf8(
+        self, mockserver: MockServer, value: str
+    ) -> None:
         request = Request(
             mockserver.url("/echo", is_secure=self.is_secure),
-            headers={"X-Custom-Header": "café"},
+            headers={"X-Custom-Header": value},
         )
         async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
         assert response.status == HTTPStatus.OK
         body = json.loads(response.body.decode())
-        assert body["headers"]["X-Custom-Header"] == ["café"]
+        assert body["headers"]["X-Custom-Header"] == [value]
 
     @coroutine_test
     async def test_request_header_non_utf8(
         self, caplog: pytest.LogCaptureFixture, mockserver: MockServer
     ) -> None:
-        if not self.handler_supports_non_utf8_request_headers:
-            pytest.skip("The handler cannot send non-UTF-8 request headers.")
         request = Request(
             mockserver.url("/echo", is_secure=self.is_secure),
             headers={"X-Custom-Header": b"caf\xe9"},
@@ -368,11 +376,26 @@ class TestHttpBase(ABC):
         assert json.loads(body["body"]) == request_body
 
     @coroutine_test
+    async def test_download_response_header_utf8(self, mockserver: MockServer) -> None:
+        if not self.handler_supports_non_ascii_response_headers:
+            pytest.skip("The handler cannot keep non-ASCII response header values.")
+        value = "café €".encode()
+        request = Request(
+            mockserver.url("/response-headers", is_secure=self.is_secure),
+            headers={"content-type": "application/json"},
+            body=json.dumps({"X-Custom-Header": value.decode()}),
+        )
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.status == 200
+        assert response.headers.getlist("X-Custom-Header") == [value]
+
+    @coroutine_test
     async def test_download_response_header_non_utf8(
         self, mockserver: MockServer
     ) -> None:
-        if not self.handler_supports_non_utf8_response_headers:
-            pytest.skip("The handler cannot keep non-UTF-8 response headers.")
+        if not self.handler_supports_non_ascii_response_headers:
+            pytest.skip("The handler cannot keep non-ASCII response header values.")
         value = b"caf\xe9"
         request = Request(
             mockserver.url("/response-headers", is_secure=self.is_secure),
