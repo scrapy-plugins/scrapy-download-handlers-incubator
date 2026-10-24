@@ -204,16 +204,18 @@ async def test_proxy_headers_ignored_for_socks(
 
 
 @coroutine_test
-async def test_proxy_headers_replace_proxy_authorization() -> None:
+async def test_adapter_proxy_headers() -> None:
     handler = build_from_crawler(NiquestsDownloadHandler, get_crawler())
     try:
         session = handler._get_session(
-            "http://proxy.example:8080", (("proxy-authorization", "Custom x"),)
+            "http://proxy.example:8080",
+            (("X-A", "1"), ("X-A", "café"), ("proxy-authorization", "Custom x")),
         )
         adapter = session.get_adapter("http://example.com")
         assert isinstance(adapter, niquests.adapters.AsyncHTTPAdapter)
         assert adapter.proxy_headers("http://user:pass@proxy.example:8080") == {
-            "proxy-authorization": "Custom x"
+            "X-A": "1,caf\xc3\xa9",
+            "proxy-authorization": "Custom x",
         }
     finally:
         await handler.close()
