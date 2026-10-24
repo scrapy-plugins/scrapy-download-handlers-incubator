@@ -2,7 +2,7 @@
 Changelog
 =========
 
-0.6.0 (unreleased)
+0.6.0 (2026-10-24)
 ------------------
 
 * Dropped support for Scrapy 2.18.x.
