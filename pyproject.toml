@@ -47,6 +47,9 @@ niquests = [
 pyreqwest = [
     "pyreqwest>=0.11.0",
 ]
+wreq = [
+    "wreq>=0.13.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/scrapy-plugins/scrapy-download-handlers-incubator"
