@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 from scrapy import Request
+from scrapy.utils.misc import build_from_crawler
+from scrapy.utils.test import get_crawler
 
 from scrapy_download_handlers_incubator import CurlCffiDownloadHandler
 from tests.test_handlers_base import (
@@ -134,7 +136,6 @@ class TestHttpsProxy(CurlCffiDownloadHandlerMixin, TestHttpProxyBase):
 
 
 class TestMitmProxy(CurlCffiDownloadHandlerMixin, TestMitmProxyBase):
-    handler_supports_proxy_headers = False
     # HTTP destinations fail with "curl: (27)", HTTPS ones work
     handler_supports_ipv6_destination = False
 
@@ -142,3 +143,38 @@ class TestMitmProxy(CurlCffiDownloadHandlerMixin, TestMitmProxyBase):
 @pytest.mark.requires_internet
 class TestRealWebsite(CurlCffiDownloadHandlerMixin, TestRealWebsiteBase):
     handler_supports_tls_logging = False
+
+
+@coroutine_test
+async def test_proxy_header_sessions() -> None:
+    proxy = "http://proxy.example:8080"
+    handler = build_from_crawler(CurlCffiDownloadHandler, get_crawler())
+    try:
+        session = handler._get_session(proxy, (("X-A", "1"),))
+        assert session is not handler._session
+        assert handler._get_session(proxy, (("X-A", "1"),)) is session
+        assert (
+            handler._get_session("http://other.example:8080", (("X-A", "1"),))
+            is session
+        )
+        assert handler._get_session(proxy, (("X-A", "2"),)) is not session
+        assert handler._get_session(proxy) is handler._session
+        assert handler._get_session(None, (("X-A", "1"),)) is handler._session
+        assert len(handler._proxy_header_sessions) == 2
+    finally:
+        await handler.close()
+
+
+@coroutine_test
+async def test_proxy_headers_ignored_for_socks(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    proxy = "socks5://proxy.example:1080"
+    handler = build_from_crawler(CurlCffiDownloadHandler, get_crawler())
+    try:
+        with caplog.at_level("WARNING"):
+            assert handler._get_session(proxy, (("X-A", "1"),)) is handler._session
+            assert handler._get_session(proxy, (("X-A", "1"),)) is handler._session
+    finally:
+        await handler.close()
+    assert caplog.text.count("the SOCKS protocol has no headers") == 1
