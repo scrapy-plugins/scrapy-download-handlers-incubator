@@ -57,6 +57,7 @@ CurlCffiDownloadHandler   Yes          Yes          No            ``libcurl``
 HttpxDownloadHandler      Yes          Yes          Not possible  Stdlib ``ssl``
 NiquestsDownloadHandler   Yes          Yes          Not possible  Stdlib ``ssl``
 PyreqwestDownloadHandler  Yes          Not possible Not possible  ``rustls``
+WreqDownloadHandler       Yes          Yes          Yes           BoringSSL
 ========================= ============ ============ ============= ==================
 
 The following basic features are supported by all handlers unless mentioned in
@@ -333,3 +334,81 @@ Settings
   HTTP/2.
 
 .. _pyreqwest: https://markussintonen.github.io/pyreqwest/pyreqwest.html
+
+WreqDownloadHandler
+-------------------
+
+This handler supports HTTP/1.1 and HTTP/2 and uses the wreq_ library. It also
+supports emulating TLS, HTTP/2 and header fingerprints of browsers and other
+clients.
+
+Install it with:
+
+.. code:: bash
+
+    pip install scrapy-download-handlers-incubator[wreq]
+
+Enable it with:
+
+.. code-block:: python
+
+    DOWNLOAD_HANDLERS = {
+        "http": "scrapy_download_handlers_incubator.WreqDownloadHandler",
+        "https": "scrapy_download_handlers_incubator.WreqDownloadHandler",
+    }
+
+Features and limitations
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+============================== ========================================
+HTTP proxies                   Yes
+SOCKS proxies                  Yes (SOCKS4, SOCKS5)
+HTTP/2                         Yes
+HTTP/3                         No (not supported by the library)
+TLS verbose logging            No (not supported by the library)
+``response.ip_address``        Yes
+``response.certificate``       Yes (DER bytes)
+Per-request ``bindaddress``    Yes
+Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
+TLS implementation             BoringSSL
+============================== ========================================
+
+Notable features supported by the library but not implemented:
+
+* DNS resolving settings
+* TLS and HTTP/2 tunables
+* Client certificates
+
+Settings
+^^^^^^^^
+
+* ``WREQ_HTTP2_ENABLED`` (``bool``, default: ``False``): Whether to enable
+  HTTP/2.
+* ``WREQ_EMULATION`` (``str`` or ``dict``, default: ``None``): The client to
+  emulate. Either a name of a ``wreq.Profile`` member, e.g. ``"Chrome149"``,
+  or a dict of ``wreq.Emulation`` arguments, with names of ``wreq.Profile``
+  and ``wreq.Platform`` members as the ``profile`` and ``platform`` values,
+  e.g. ``{"profile": "Chrome149", "platform": "Windows"}``.
+
+Request meta keys
+^^^^^^^^^^^^^^^^^
+
+* ``wreq_emulation``: Same as ``WREQ_EMULATION``, overrides it for this
+  request.
+
+Emulation details
+^^^^^^^^^^^^^^^^^
+
+With HTTP/2 disabled the TLS fingerprint won't match the one of the emulated
+browser, so you should also set ``WREQ_HTTP2_ENABLED`` to ``True``.
+
+Emulation adds browser request headers, but headers set by Scrapy override
+them. To send the emulated ``User-Agent``, ``Accept`` and ``Accept-Language``
+headers, disable the ones set by Scrapy:
+
+.. code-block:: python
+
+    USER_AGENT = None
+    DEFAULT_REQUEST_HEADERS = {}
+
+.. _wreq: https://github.com/0x676e67/wreq-python

@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from .httpx import HttpxDownloadHandler
     from .niquests import NiquestsDownloadHandler
     from .pyreqwest import PyreqwestDownloadHandler
+    from .wreq import WreqDownloadHandler
 
 __all__ = [
     "AiohttpDownloadHandler",
@@ -16,6 +17,7 @@ __all__ = [
     "HttpxDownloadHandler",
     "NiquestsDownloadHandler",
     "PyreqwestDownloadHandler",
+    "WreqDownloadHandler",
 ]
 
 _HANDLER_MODULES = {
@@ -24,6 +26,7 @@ _HANDLER_MODULES = {
     "HttpxDownloadHandler": "httpx",
     "NiquestsDownloadHandler": "niquests",
     "PyreqwestDownloadHandler": "pyreqwest",
+    "WreqDownloadHandler": "wreq",
 }
 
 

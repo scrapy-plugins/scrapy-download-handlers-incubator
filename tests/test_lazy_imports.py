@@ -18,6 +18,7 @@ HANDLER_NAMES = [
     "HttpxDownloadHandler",
     "NiquestsDownloadHandler",
     "PyreqwestDownloadHandler",
+    "WreqDownloadHandler",
 ]
 
 MODULES = [scrapy_download_handlers_incubator, handlers]
