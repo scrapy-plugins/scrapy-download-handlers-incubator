@@ -5,7 +5,7 @@ import contextlib
 import ipaddress
 import logging
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from scrapy.exceptions import (
     CannotResolveHostError,
@@ -32,21 +32,21 @@ if TYPE_CHECKING:
 
 
 try:
-    import curl_cffi.const
     import curl_cffi.requests.exceptions
+    import curl_cffi.requests.impersonate
 
     _HTTP_VERSION_MAP: dict[int, str] = {
-        curl_cffi.const.CurlHttpVersion.V1_0: "HTTP/1.0",
-        curl_cffi.const.CurlHttpVersion.V1_1: "HTTP/1.1",
-        curl_cffi.const.CurlHttpVersion.V2_0: "HTTP/2.0",
-        curl_cffi.const.CurlHttpVersion.V3: "HTTP/3",
+        curl_cffi.CurlHttpVersion.V1_0: "HTTP/1.0",
+        curl_cffi.CurlHttpVersion.V1_1: "HTTP/1.1",
+        curl_cffi.CurlHttpVersion.V2_0: "HTTP/2.0",
+        curl_cffi.CurlHttpVersion.V3: "HTTP/3",
     }
 
     _TLS_VERSION_MAP: dict[str, int] = {
-        "TLSv1.0": curl_cffi.const.CurlSslVersion.TLSv1_0,
-        "TLSv1.1": curl_cffi.const.CurlSslVersion.TLSv1_1,
-        "TLSv1.2": curl_cffi.const.CurlSslVersion.TLSv1_2,
-        "TLSv1.3": curl_cffi.const.CurlSslVersion.TLSv1_3,
+        "TLSv1.0": curl_cffi.CurlSslVersion.TLSv1_0,
+        "TLSv1.1": curl_cffi.CurlSslVersion.TLSv1_1,
+        "TLSv1.2": curl_cffi.CurlSslVersion.TLSv1_2,
+        "TLSv1.3": curl_cffi.CurlSslVersion.TLSv1_3,
     }
 except ImportError:
     curl_cffi = None  # type: ignore[assignment]
@@ -68,38 +68,46 @@ class CurlCffiDownloadHandler(_Base):
         verify_certificates: bool = crawler.settings.getbool(
             "DOWNLOAD_VERIFY_CERTIFICATES"
         )
-        curl_options: dict[curl_cffi.const.CurlOpt, object] = {}
+        curl_options: dict[curl_cffi.CurlOpt, object] = {}
         if not verify_certificates:
             # disable proxy cert verification for test simplification and to match other handlers
-            curl_options[curl_cffi.const.CurlOpt.PROXY_SSL_VERIFYPEER] = 0
-            curl_options[curl_cffi.const.CurlOpt.PROXY_SSL_VERIFYHOST] = 0
+            curl_options[curl_cffi.CurlOpt.PROXY_SSL_VERIFYPEER] = 0
+            curl_options[curl_cffi.CurlOpt.PROXY_SSL_VERIFYHOST] = 0
         tls_min, tls_max = _get_tls_version_limits(
             crawler.settings, _TLS_VERSION_MAP.__getitem__
         )
         if tls_min is not None or tls_max is not None:
             min_part = (
-                tls_min
-                if tls_min is not None
-                else curl_cffi.const.CurlSslVersion.DEFAULT
+                tls_min if tls_min is not None else curl_cffi.CurlSslVersion.DEFAULT
             )
             max_part = (
                 (tls_max << 16)
                 if tls_max is not None
-                else curl_cffi.const.CurlSslVersion.MAX_DEFAULT
+                else curl_cffi.CurlSslVersion.MAX_DEFAULT
             )
-            curl_options[curl_cffi.const.CurlOpt.SSLVERSION] = min_part | max_part
+            curl_options[curl_cffi.CurlOpt.SSLVERSION] = min_part | max_part
         self._verify_certificates: bool = verify_certificates
-        self._curl_options: dict[curl_cffi.const.CurlOpt, object] = curl_options
+        self._curl_options: dict[curl_cffi.CurlOpt, object] = curl_options
         # https://curl-cffi.readthedocs.io/en/latest/advanced.html#selecting-http-version
         # The mapping is in curl_cffi.requests.utils.normalize_http_version()
         self._http_version: curl_cffi.requests.utils.HttpVersionLiteral = (
             crawler.settings.get("CURL_CFFI_HTTP_VERSION", "v1")
         )
-        self._session: curl_cffi.AsyncSession[curl_cffi.Response] = self._make_session()
+        self._impersonate: (
+            curl_cffi.BrowserTypeLiteral | curl_cffi.Fingerprint | None
+        ) = None
+        if (impersonate := crawler.settings.get("CURL_CFFI_IMPERSONATE")) is not None:
+            try:
+                self._impersonate = _parse_impersonate(impersonate)
+            except ValueError as e:
+                raise NotConfigured(f"Invalid CURL_CFFI_IMPERSONATE value: {e}") from e
         # curl_cffi only takes curl options per session, so we keep a session
         # per set of proxy headers. LRU eviction can be added here if needed.
-        self._proxy_header_sessions: dict[
-            tuple[tuple[str, str], ...], curl_cffi.AsyncSession[curl_cffi.Response]
+        # Requests impersonating a target by name also get separate sessions,
+        # as the browser headers set for them survive curl_easy_reset().
+        self._sessions: dict[
+            tuple[tuple[tuple[str, str], ...], bool],
+            curl_cffi.AsyncSession[curl_cffi.Response],
         ] = {}
         self._warned_socks_proxy_headers: bool = False
 
@@ -108,7 +116,7 @@ class CurlCffiDownloadHandler(_Base):
     ) -> curl_cffi.AsyncSession[curl_cffi.Response]:
         curl_options = dict(self._curl_options)
         if proxy_headers:
-            curl_options[curl_cffi.const.CurlOpt.PROXYHEADER] = [
+            curl_options[curl_cffi.CurlOpt.PROXYHEADER] = [
                 (f"{name}: {value}" if value else f"{name};").encode()
                 for name, value in proxy_headers
             ]
@@ -129,21 +137,21 @@ class CurlCffiDownloadHandler(_Base):
         self,
         proxy_url: str | None,
         proxy_headers: tuple[tuple[str, str], ...] = (),
+        impersonate: str | curl_cffi.Fingerprint | None = None,
     ) -> curl_cffi.AsyncSession[curl_cffi.Response]:
-        if not proxy_url or not proxy_headers:
-            return self._session
-        if proxy_url.startswith("socks"):
+        if not proxy_url:
+            proxy_headers = ()
+        elif proxy_headers and proxy_url.startswith("socks"):
             if not self._warned_socks_proxy_headers:
                 logger.warning(
                     "Ignoring the proxy_headers request metadata key for SOCKS"
                     " proxies, as the SOCKS protocol has no headers."
                 )
                 self._warned_socks_proxy_headers = True
-            return self._session
-        if cached := self._proxy_header_sessions.get(proxy_headers):
-            return cached
-        session = self._make_session(proxy_headers)
-        self._proxy_header_sessions[proxy_headers] = session
+            proxy_headers = ()
+        key = (proxy_headers, isinstance(impersonate, str))
+        if (session := self._sessions.get(key)) is None:
+            session = self._sessions[key] = self._make_session(proxy_headers)
         return session
 
     @staticmethod
@@ -159,9 +167,12 @@ class CurlCffiDownloadHandler(_Base):
         request: Request,
         timeout: float,  # noqa: ASYNC109
     ) -> AsyncIterator[curl_cffi.Response]:
+        impersonate = self._impersonate
+        if (meta_impersonate := request.meta.get("curl_cffi_impersonate")) is not None:
+            impersonate = _parse_impersonate(meta_impersonate)
         proxy = self._extract_proxy_url_with_creds(request)
-        session = self._get_session(proxy, get_proxy_headers(request))
-        headers = curl_cffi.requests.Headers(
+        session = self._get_session(proxy, get_proxy_headers(request), impersonate)
+        headers = curl_cffi.Headers(
             self._utf8_request_headers(request), encoding="utf-8"
         )
         response: curl_cffi.Response | None = None
@@ -176,6 +187,8 @@ class CurlCffiDownloadHandler(_Base):
                 # don't decompress
                 accept_encoding=None,
                 proxy=proxy,
+                impersonate=impersonate,
+                default_headers=impersonate is not None,
                 stream=True,
             )
             yield response
@@ -194,9 +207,9 @@ class CurlCffiDownloadHandler(_Base):
             raise DownloadConnectionRefusedError(str(e)) from e
         except curl_cffi.requests.exceptions.ConnectionError as e:
             if e.code in {
-                curl_cffi.const.CurlECode.SEND_ERROR,
-                curl_cffi.const.CurlECode.RECV_ERROR,
-                curl_cffi.const.CurlECode.WEIRD_SERVER_REPLY,
+                curl_cffi.CurlECode.SEND_ERROR,
+                curl_cffi.CurlECode.RECV_ERROR,
+                curl_cffi.CurlECode.WEIRD_SERVER_REPLY,
             }:
                 raise DownloadFailedError(str(e)) from e
             raise DownloadConnectionRefusedError(str(e)) from e
@@ -249,11 +262,28 @@ class CurlCffiDownloadHandler(_Base):
         return isinstance(
             exc, curl_cffi.requests.exceptions.RequestException
         ) and exc.code in {
-            curl_cffi.const.CurlECode.PARTIAL_FILE,
-            curl_cffi.const.CurlECode.HTTP2_STREAM,
+            curl_cffi.CurlECode.PARTIAL_FILE,
+            curl_cffi.CurlECode.HTTP2_STREAM,
         }
 
     async def close(self) -> None:
-        await self._session.close()
-        for session in self._proxy_header_sessions.values():
+        for session in self._sessions.values():
             await session.close()
+
+
+def _parse_impersonate(
+    value: curl_cffi.BrowserTypeLiteral | dict[str, Any] | curl_cffi.Fingerprint,
+) -> curl_cffi.BrowserTypeLiteral | curl_cffi.Fingerprint:
+    if isinstance(value, str):
+        target = curl_cffi.requests.impersonate.resolve_latest_browser_type(value)  # type: ignore[no-untyped-call]
+        if target not in curl_cffi.FingerprintManager.load_fingerprints():
+            raise ValueError(f"Unknown impersonation target: {value!r}")
+        return value
+    if isinstance(value, dict):
+        try:
+            return curl_cffi.Fingerprint(**value)
+        except TypeError as e:
+            raise ValueError(str(e)) from e
+    if isinstance(value, curl_cffi.Fingerprint):
+        return value
+    raise ValueError(f"Expected a target name, a dict or a Fingerprint, got {value!r}")

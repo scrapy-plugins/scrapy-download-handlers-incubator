@@ -53,7 +53,7 @@ Handler                   HTTP/2       Proxies      Impersonation TLS implementa
 ========================= ============ ============ ============= ==================
 (HTTP11DownloadHandler)   Not possible Yes          Not possible  ``cryptography``
 AiohttpDownloadHandler    Not possible Yes          Not possible  Stdlib ``ssl``
-CurlCffiDownloadHandler   Yes          Yes          No            ``libcurl``
+CurlCffiDownloadHandler   Yes          Yes          Yes           ``libcurl``
 HttpxDownloadHandler      Yes          Yes          Not possible  Stdlib ``ssl``
 NiquestsDownloadHandler   Yes          Yes          Not possible  Stdlib ``ssl``
 PyreqwestDownloadHandler  Yes          Not possible Not possible  ``rustls``
@@ -131,7 +131,8 @@ Notable features supported by the library but not implemented:
 CurlCffiDownloadHandler
 -----------------------
 
-This handler supports HTTP/1.1 and HTTP/2 and uses the curl_cffi_ library.
+This handler supports HTTP/1.1 and HTTP/2 and uses the curl_cffi_ library. It
+also supports impersonating TLS, HTTP/2 and header fingerprints of browsers.
 
 Install it with:
 
@@ -166,7 +167,6 @@ TLS implementation             ``libcurl``
 
 Notable features supported by the library but not implemented:
 
-* Impersonation
 * Advanced libcurl tunables
 
 Settings
@@ -179,6 +179,33 @@ Settings
   underlying constants can be seen in libcurl docs (CURLOPT_HTTP_VERSION_). Set
   this to ``"v2tls"`` or ``"v2"`` to enable HTTP/2 for HTTPS requests or for
   all requests respectively. Set this to ``"v3"`` to enable HTTP/3.
+* ``CURL_CFFI_IMPERSONATE`` (``str``, ``dict`` or ``curl_cffi.Fingerprint``,
+  default: ``None``): The browser to impersonate. Either a target name
+  supported by curl_cffi, e.g. ``"chrome"`` or ``"firefox135"``, or a custom
+  fingerprint as a ``curl_cffi.Fingerprint`` object or a dict of its
+  arguments.
+
+Request meta keys
+^^^^^^^^^^^^^^^^^
+
+* ``curl_cffi_impersonate``: Same as ``CURL_CFFI_IMPERSONATE``, overrides it
+  for this request.
+
+Impersonation details
+^^^^^^^^^^^^^^^^^^^^^
+
+With HTTP/2 disabled the TLS fingerprint won't match the one of the
+impersonated browser, so you should also set ``CURL_CFFI_HTTP_VERSION`` to
+``"v2tls"``.
+
+Impersonation adds browser request headers, but headers set by Scrapy override
+them. To send the impersonated ``User-Agent``, ``Accept`` and
+``Accept-Language`` headers, disable the ones set by Scrapy:
+
+.. code-block:: python
+
+    USER_AGENT = None
+    DEFAULT_REQUEST_HEADERS = {}
 
 .. _curl_cffi: https://curl-cffi.readthedocs.io/en/latest/
 .. _CURLOPT_HTTP_VERSION: https://curl.se/libcurl/c/CURLOPT_HTTP_VERSION.html
