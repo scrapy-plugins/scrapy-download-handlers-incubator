@@ -123,10 +123,11 @@ class NiquestsDownloadHandler(_Base):
             raise ValueError(
                 f"SOCKS proxy support in {type(self).__name__} requires the 'niquests[socks]' extra to be installed."
             )
-        headers = self._request_headers(request).to_unicode_dict()
-        for k in list(headers):
-            if headers[k] == "":
-                del headers[k]
+        headers = {
+            name: b",".join(values)
+            for name, values in self._request_headers(request).items()
+            if values
+        }
         proxies = {"http": proxy, "https": proxy} if proxy else None
         try:
             async with await self._session.request(
@@ -172,7 +173,14 @@ class NiquestsDownloadHandler(_Base):
         # urllib3.HTTPHeaderDict which supports them
         assert isinstance(response.raw, urllib3.HTTPResponse)
         assert isinstance(response.raw.headers, urllib3.HTTPHeaderDict)
-        return Headers(response.raw.headers.items())
+        # the values are decoded as latin-1, so encoding them back gives the
+        # received bytes
+        return Headers(
+            [
+                (name.encode("latin-1"), value.encode("latin-1"))
+                for name, value in response.raw.headers.items()
+            ]
+        )
 
     @staticmethod
     def _build_base_response_args(

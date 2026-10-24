@@ -49,20 +49,15 @@ class TestHttp(CurlCffiDownloadHandlerMixin, TestHttpBase):
     handler_supports_bindaddress_meta = False
     handler_bad_header_handling = "fail"
     handler_supports_idna_rejected_hostnames = False
-    # curl_cffi encodes header values as ASCII
-    handler_supports_utf8_request_headers = False
-    handler_supports_non_utf8_request_headers = False
-    # curl_cffi decodes header values as Latin-1
-    handler_supports_non_utf8_response_headers = False
+    # curl_cffi sends header values as UTF-8
+    handler_non_utf8_request_header_handling = "replace"
 
 
 class TestHttps(CurlCffiDownloadHandlerMixin, TestHttpsBase):
     handler_supports_bindaddress_meta = False
     handler_bad_header_handling = "fail"
     handler_supports_idna_rejected_hostnames = False
-    handler_supports_utf8_request_headers = False
-    handler_supports_non_utf8_request_headers = False
-    handler_supports_non_utf8_response_headers = False
+    handler_non_utf8_request_header_handling = "replace"
     handler_supports_tls_logging = False
     handler_supports_keylogging = False
 
