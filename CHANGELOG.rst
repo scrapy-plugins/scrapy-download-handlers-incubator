@@ -2,6 +2,27 @@
 Changelog
 =========
 
+0.6.0 (unreleased)
+------------------
+
+* Dropped support for Scrapy 2.18.x.
+* Dropped support for Python 3.10.
+* Dropped support for the original ``httpx`` library in
+  ``HttpxDownloadHandler``, it now requires ``httpx2``. The ``httpx`` extra
+  now installs ``httpx2``, the ``httpx2`` extra was removed.
+* Bumped the minimum supported ``curl_cffi`` version to 0.16.0.
+* Bumped the minimum supported ``httpx2`` version to 2.3.0.
+* Added ``aiodns`` to the dependencies.
+* Removed the ``aiohttp`` extra as ``aiohttp`` is a dependency of Scrapy.
+* Synced some of the ``AiohttpDownloadHandler`` and ``HttpxDownloadHandler``
+  changes from unreleased Scrapy 2.20.0.
+* Added support for the ``proxy_headers`` request meta key to
+  ``CurlCffiDownloadHandler`` and ``NiquestsDownloadHandler``.
+* Improved handling of request and response headers that are not ASCII or
+  UTF-8 in ``CurlCffiDownloadHandler``, ``NiquestsDownloadHandler`` and
+  ``PyreqwestDownloadHandler``.
+* CI improvements.
+
 0.5.1 (2026-09-12)
 ------------------
 

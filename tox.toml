@@ -27,7 +27,7 @@ deps = [
         "aiodns==3.3.0",
         "aiohttp==3.13.3",
         "curl_cffi==0.16.0",
-        "httpx2[http2,socks]==2.0.0",
+        "httpx2[http2,socks]==2.3.0",
         "niquests[socks]==3.20.0",
         # aiodns < 4 needs pycares < 5
         "pycares==4.11.0",
