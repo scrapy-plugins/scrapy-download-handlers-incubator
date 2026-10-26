@@ -1750,6 +1750,35 @@ class TestHttpProxyBase(ABC):
         assert response.body == b"/path/to/resource"
 
     @coroutine_test
+    async def test_download_ignores_proxy_env(
+        self, monkeypatch: pytest.MonkeyPatch, proxy_mockserver: ProxyEchoMockServer
+    ) -> None:
+        dead_proxy = f"http://127.0.0.1:{_free_port()}"
+        for name in ("http_proxy", "https_proxy", "all_proxy"):
+            monkeypatch.setenv(name, dead_proxy)
+            monkeypatch.setenv(name.upper(), dead_proxy)
+        request = Request(
+            proxy_mockserver.url("/path/to/resource", is_secure=self.is_secure)
+        )
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.status == 200
+        assert response.body == b"/path/to/resource"
+
+    @coroutine_test
+    async def test_download_with_proxy_ignores_no_proxy_env(
+        self, monkeypatch: pytest.MonkeyPatch, proxy_mockserver: ProxyEchoMockServer
+    ) -> None:
+        monkeypatch.setenv("no_proxy", "*")
+        monkeypatch.setenv("NO_PROXY", "*")
+        http_proxy = proxy_mockserver.url("", is_secure=self.is_secure)
+        request = Request("http://example.com", meta={"proxy": http_proxy})
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.status == 200
+        assert response.body == self.expected_http_proxy_request_body
+
+    @coroutine_test
     async def test_download_with_proxy_https_timeout(
         self, proxy_mockserver: ProxyEchoMockServer
     ) -> None:
