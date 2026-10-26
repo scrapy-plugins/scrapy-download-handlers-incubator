@@ -2,6 +2,14 @@
 Changelog
 =========
 
+0.7.0 (unreleased)
+------------------
+
+* Bumped the minimum supported ``curl_cffi`` version to 0.17.0.
+* Added ``WreqDownloadHandler``, a new handler based on the ``wreq`` library.
+* Added impersonation support to ``CurlCffiDownloadHandler``.
+* CI improvements.
+
 0.6.0 (2026-10-24)
 ------------------
 
