@@ -142,8 +142,7 @@ class TestHttpsProxy(CurlCffiDownloadHandlerMixin, TestHttpProxyBase):
 
 
 class TestMitmProxy(CurlCffiDownloadHandlerMixin, TestMitmProxyBase):
-    # HTTP destinations fail with "curl: (27)", HTTPS ones work
-    handler_supports_ipv6_destination = False
+    pass
 
 
 @pytest.mark.requires_internet
