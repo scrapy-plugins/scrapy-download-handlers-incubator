@@ -2,7 +2,7 @@
 Changelog
 =========
 
-0.7.0 (unreleased)
+0.7.0 (2026-10-26)
 ------------------
 
 * Bumped the minimum supported ``curl_cffi`` version to 0.17.0.
