@@ -142,8 +142,7 @@ class TestHttpsProxy(CurlCffiDownloadHandlerMixin, TestHttpProxyBase):
 
 
 class TestMitmProxy(CurlCffiDownloadHandlerMixin, TestMitmProxyBase):
-    # HTTP destinations fail with "curl: (27)", HTTPS ones work
-    handler_supports_ipv6_destination = False
+    pass
 
 
 @pytest.mark.requires_internet
@@ -244,12 +243,17 @@ class TestImpersonation:
         finally:
             await handler.close()
 
+    @pytest.mark.parametrize(
+        "impersonate",
+        ["chrome136", {"headers": {"User-Agent": "foo"}}],
+        ids=["target", "fingerprint"],
+    )
     @coroutine_test
-    async def test_http2(self, mockserver: MockServer) -> None:
+    async def test_http2(self, mockserver: MockServer, impersonate: Any) -> None:
         request = Request(mockserver.url("/text", is_secure=True))
         response = await self._download(
             request,
-            {"CURL_CFFI_IMPERSONATE": "chrome136", "CURL_CFFI_HTTP_VERSION": "v2tls"},
+            {"CURL_CFFI_IMPERSONATE": impersonate, "CURL_CFFI_HTTP_VERSION": "v2tls"},
         )
         assert response.protocol == "HTTP/2.0"
 
