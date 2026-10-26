@@ -8,9 +8,7 @@ from scrapy.utils.misc import build_from_crawler
 from scrapy.utils.test import get_crawler
 
 from scrapy_download_handlers_incubator import NiquestsDownloadHandler
-from scrapy_download_handlers_incubator.handlers.niquests import (  # type: ignore[attr-defined]
-    niquests,
-)
+from scrapy_download_handlers_incubator.handlers.niquests import niquests  # type: ignore[attr-defined]
 from tests.test_handlers_base import (
     TestHttpBase,
     TestHttpProxyBase,
