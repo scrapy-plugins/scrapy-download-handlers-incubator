@@ -156,7 +156,7 @@ class TestHttpsWithCrawler(TestHttpWithCrawler):
 
 
 class TestHttpProxy(WreqDownloadHandlerMixin, TestHttpProxyBase):
-    expected_http_proxy_request_body = b"http://example.com/"
+    pass
 
 
 class TestHttpsProxy(TestHttpProxy):

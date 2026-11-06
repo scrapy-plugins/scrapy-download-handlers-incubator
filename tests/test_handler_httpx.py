@@ -5,6 +5,8 @@ from importlib.util import find_spec
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
+import scrapy
+from packaging.version import Version
 from scrapy import Request
 from scrapy.utils.misc import build_from_crawler
 from scrapy.utils.test import get_crawler
@@ -158,7 +160,7 @@ class TestHttpsWithCrawler(TestHttpWithCrawler):
 
 
 class TestHttpProxy(HttpxDownloadHandlerMixin, TestHttpProxyBase):
-    expected_http_proxy_request_body = b"http://example.com/"
+    pass
 
 
 class TestHttpsProxy(TestHttpProxy):
@@ -177,7 +179,7 @@ class TestHttpsProxy(TestHttpProxy):
         request = Request("http://example.com", meta={"proxy": http_proxy})
         async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
-        assert response.body == self.expected_http_proxy_request_body
+        assert response.body == b"http://example.com/"
         assert keylog_file.read_text()
 
 
@@ -223,14 +225,33 @@ async def test_proxy_headers_ignored_for_socks(
     assert "the SOCKS protocol has no headers" in caplog.text
 
 
-@pytest.mark.parametrize(("concurrency", "expected"), [(16, 16), (0, None)])
+@pytest.mark.parametrize(("limit", "expected"), [(16, 16), (0, None)])
 @coroutine_test
-async def test_pool_limits(concurrency: int, expected: int | None) -> None:
-    crawler = get_crawler(settings_dict={"CONCURRENT_REQUESTS": concurrency})
+async def test_pool_limits(limit: int, expected: int | None) -> None:
+    crawler = get_crawler(
+        settings_dict={
+            "CONCURRENT_REQUESTS": limit,  # Scrapy 2.19
+            "CONCURRENT_CONNECTIONS_PER_HANDLER": limit,
+        }
+    )
     handler = build_from_crawler(HttpxDownloadHandler, crawler)
     try:
         assert handler._limits.max_connections == expected
         assert handler._limits.max_keepalive_connections == expected
+    finally:
+        await handler.close()
+
+
+@pytest.mark.skipif(
+    Version(scrapy.__version__) < Version("2.20"),
+    reason="CONNECTION_KEEPALIVE_TIMEOUT requires Scrapy 2.20+",
+)
+@coroutine_test
+async def test_keepalive_timeout() -> None:
+    crawler = get_crawler(settings_dict={"CONNECTION_KEEPALIVE_TIMEOUT": 5})
+    handler = build_from_crawler(HttpxDownloadHandler, crawler)
+    try:
+        assert handler._limits.keepalive_expiry == 5
     finally:
         await handler.close()
 

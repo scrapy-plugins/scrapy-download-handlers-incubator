@@ -14,7 +14,11 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
-from scrapy.utils.ssl import _get_tls_version_limits
+
+try:
+    from scrapy.utils._ssl import _get_tls_version_limits
+except ImportError:  # Scrapy 2.19
+    from scrapy.utils.ssl import _get_tls_version_limits  # type: ignore[attr-defined,no-redef]
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
@@ -183,6 +187,10 @@ class PyreqwestDownloadHandler(_Base):
         return isinstance(exc, pyreqwest.exceptions.RequestError) and _find_in_causes(
             exc, "error reading a body from connection"
         )
+
+    @staticmethod
+    def _is_timeout_exception(exc: Exception) -> bool:
+        return isinstance(exc, pyreqwest.exceptions.ReadTimeoutError)
 
     async def close(self) -> None:
         await self._client.close()

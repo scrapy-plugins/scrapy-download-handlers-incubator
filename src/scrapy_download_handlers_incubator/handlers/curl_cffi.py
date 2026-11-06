@@ -16,7 +16,11 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
-from scrapy.utils.ssl import _get_tls_version_limits
+
+try:
+    from scrapy.utils._ssl import _get_tls_version_limits
+except ImportError:  # Scrapy 2.19
+    from scrapy.utils.ssl import _get_tls_version_limits  # type: ignore[attr-defined,no-redef]
 
 from scrapy_download_handlers_incubator.utils import get_proxy_headers
 
@@ -265,6 +269,10 @@ class CurlCffiDownloadHandler(_Base):
             curl_cffi.CurlECode.PARTIAL_FILE,
             curl_cffi.CurlECode.HTTP2_STREAM,
         }
+
+    @staticmethod
+    def _is_timeout_exception(exc: Exception) -> bool:
+        return isinstance(exc, curl_cffi.requests.exceptions.Timeout)
 
     async def close(self) -> None:
         for session in self._sessions.values():
