@@ -18,11 +18,19 @@ from scrapy.exceptions import (
 )
 from scrapy.http import Headers
 from scrapy.utils.python import _iter_exc_causes
-from scrapy.utils.ssl import (
-    _STDLIB_VERSION_MAP,
-    _get_tls_version_limits,
-    _make_insecure_ssl_ctx,
-)
+
+try:
+    from scrapy.utils._ssl import (
+        _STDLIB_VERSION_MAP,
+        _get_tls_version_limits,
+        _make_insecure_ssl_ctx,
+    )
+except ImportError:  # Scrapy 2.19
+    from scrapy.utils.ssl import (  # type: ignore[attr-defined,no-redef]
+        _STDLIB_VERSION_MAP,
+        _get_tls_version_limits,
+        _make_insecure_ssl_ctx,
+    )
 
 from scrapy_download_handlers_incubator.utils import get_proxy_headers
 
@@ -282,6 +290,13 @@ class NiquestsDownloadHandler(_Base):
     @staticmethod
     def _is_dataloss_exception(exc: Exception) -> bool:
         return isinstance(exc, niquests.exceptions.ChunkedEncodingError)
+
+    @staticmethod
+    def _is_timeout_exception(exc: Exception) -> bool:
+        return any(
+            isinstance(c, (niquests.ReadTimeout, urllib3.exceptions.ReadTimeoutError))
+            for c in _iter_exc_causes(exc)
+        )
 
     def _log_tls_info(self, response: niquests.AsyncResponse, request: Request) -> None:
         conn_info = response.conn_info

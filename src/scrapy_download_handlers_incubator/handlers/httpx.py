@@ -18,11 +18,19 @@ from scrapy.exceptions import (
 from scrapy.http import Headers
 from scrapy.utils._download_handlers import NullCookieJar
 from scrapy.utils.python import _iter_exc_causes
-from scrapy.utils.ssl import (
-    _log_sslobj_debug_info,
-    _make_insecure_ssl_ctx,
-    _make_ssl_context,
-)
+
+try:
+    from scrapy.utils._ssl import (
+        _log_sslobj_debug_info,
+        _make_insecure_ssl_ctx,
+        _make_ssl_context,
+    )
+except ImportError:  # Scrapy 2.19
+    from scrapy.utils.ssl import (  # type: ignore[attr-defined,no-redef]
+        _log_sslobj_debug_info,
+        _make_insecure_ssl_ctx,
+        _make_ssl_context,
+    )
 
 from scrapy_download_handlers_incubator.utils import get_proxy_headers
 
@@ -249,6 +257,10 @@ class HttpxDownloadHandler(_Base):
         return isinstance(
             exc, httpx.RemoteProtocolError
         ) and "peer closed connection without sending complete message body" in str(exc)
+
+    @staticmethod
+    def _is_timeout_exception(exc: Exception) -> bool:
+        return isinstance(exc, httpx.ReadTimeout)
 
     def _log_tls_info(self, response: httpx.Response, request: Request) -> None:
         network_stream: AsyncNetworkStream = response.extensions["network_stream"]

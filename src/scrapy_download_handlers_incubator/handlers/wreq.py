@@ -16,7 +16,11 @@ from scrapy.exceptions import (
 )
 from scrapy.http import Headers
 from scrapy.utils._download_handlers import normalize_bind_address
-from scrapy.utils.ssl import _get_keylog_filename, _get_tls_version_limits
+
+try:
+    from scrapy.utils._ssl import _get_keylog_filename, _get_tls_version_limits
+except ImportError:  # Scrapy 2.19
+    from scrapy.utils.ssl import _get_keylog_filename, _get_tls_version_limits  # type: ignore[attr-defined,no-redef]
 
 from scrapy_download_handlers_incubator.utils import get_proxy_headers
 
@@ -261,6 +265,12 @@ class WreqDownloadHandler(_Base):
         return isinstance(
             exc,
             (wreq.exceptions.DecodingError, wreq.exceptions.ConnectionResetError),
+        )
+
+    @staticmethod
+    def _is_timeout_exception(exc: Exception) -> bool:
+        return isinstance(exc, wreq.exceptions.TimeoutError) or (
+            isinstance(exc, wreq.exceptions.BodyError) and "TimedOut" in str(exc)
         )
 
     async def close(self) -> None:

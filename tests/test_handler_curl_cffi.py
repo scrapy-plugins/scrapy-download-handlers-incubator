@@ -133,12 +133,11 @@ class TestHttpsWithCrawler(TestHttpWithCrawler):
 
 
 class TestHttpProxy(CurlCffiDownloadHandlerMixin, TestHttpProxyBase):
-    expected_http_proxy_request_body = b"http://example.com/"
+    pass
 
 
 class TestHttpsProxy(CurlCffiDownloadHandlerMixin, TestHttpProxyBase):
     is_secure = True
-    expected_http_proxy_request_body = TestHttpProxy.expected_http_proxy_request_body
 
 
 class TestMitmProxy(CurlCffiDownloadHandlerMixin, TestMitmProxyBase):
