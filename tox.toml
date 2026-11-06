@@ -20,6 +20,7 @@ deps = [
     "pytest-rerunfailures",
     "pytest-xdist>=3.7.0",
     "Twisted[http2]>=25.5.0",
+    "w3lib<2.6",  # temporary
     { replace = "if", condition = "not factor.noreactor", then = ["pytest-twisted"], extend = true },
     { replace = "if", condition = "factor.noreactor", then = ["pytest-asyncio"], extend = true },
     { replace = "if", condition = "factor.pinned", then = [

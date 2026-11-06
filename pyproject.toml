@@ -107,6 +107,7 @@ follow_imports = "skip"
 
 [tool.pytest]
 addopts = ["--import-mode=importlib"]
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "requires_internet: marks tests that need real Internet access",
 ]
@@ -126,8 +127,12 @@ filterwarnings = [
     "ignore:unclosed transport <:ResourceWarning",
     # nothing we can do
     "ignore:Make sure you are using https over https proxy:UserWarning:curl_cffi",
+    # unrecognized when pytest-asyncio isn't installed
+    "ignore:Unknown config option. asyncio_:pytest.PytestConfigWarning",
 ]
 strict = true
+# due to pytest-asyncio-specific options
+strict_config = false
 
 [tool.ruff.lint]
 extend-select = [

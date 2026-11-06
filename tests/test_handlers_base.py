@@ -1710,7 +1710,8 @@ class TestHttpProxyBase(ABC):
         raise NotImplementedError
 
     @pytest.fixture(scope="session")
-    def proxy_mockserver(self) -> Generator[ProxyEchoMockServer]:
+    @staticmethod
+    def proxy_mockserver() -> Generator[ProxyEchoMockServer]:
         with ProxyEchoMockServer() as proxy:
             yield proxy
 
