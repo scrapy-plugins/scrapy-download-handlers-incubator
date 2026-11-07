@@ -90,7 +90,7 @@ class NiquestsDownloadHandler(_Base):
             disable_http2=not self._enable_h2,
             disable_http3=True,
             # number of host buckets in the pool (older extra ones are discarded)
-            pool_connections=self._pool_size_total,
+            pool_connections=self._pool_size_total or None,  # type: ignore[arg-type]
             # number of connections per host in the pool (newer extra ones are not put there)
             pool_maxsize=self._pool_size_per_host,
             allow_incoming_cookies=False,

@@ -127,6 +127,10 @@ class TestHttpBase(ABC):
     # compared to their spelling on the wire, with the same options as above.
     handler_response_header_name_case: HeaderNameCase = "as-is"
     handler_supports_body_file: bool = True
+    # whether the handler closes idle connections to stay within
+    # CONCURRENT_CONNECTIONS_PER_HANDLER, instead of only limiting the ones in
+    # use
+    handler_limits_idle_connections: bool = True
     # default headers added by the underlying library that cannot be suppressed
     always_present_req_headers: ClassVar[frozenset[str]] = frozenset()
     default_handler_settings: ClassVar[dict[str, Any]] = {}
@@ -1268,7 +1272,8 @@ class TestHttpBase(ABC):
         assert len(await self._connection_ids(urls, {})) == 2
 
         settings_dict = {"CONCURRENT_CONNECTIONS_PER_HANDLER": 1}
-        assert len(await self._connection_ids(urls, settings_dict)) == 4
+        expected = 4 if self.handler_limits_idle_connections else 2
+        assert len(await self._connection_ids(urls, settings_dict)) == expected
 
         settings_dict = {"CONCURRENT_CONNECTIONS_PER_HANDLER": 0}
         assert len(await self._connection_ids(urls, settings_dict)) == 2

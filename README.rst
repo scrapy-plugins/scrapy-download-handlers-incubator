@@ -167,6 +167,12 @@ Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 TLS implementation             ``libcurl``
 ============================== ========================================
 
+Other limitations:
+
+* ``CONCURRENT_CONNECTIONS_PER_HANDLER`` applies separately to each curl_cffi
+  session, and the handler uses separate sessions for different
+  ``proxy_headers`` values and for requests impersonating a browser by name.
+
 Notable features supported by the library but not implemented:
 
 * Advanced libcurl tunables
@@ -360,6 +366,11 @@ HTTP/1.1 header name case   Capitalized in requests,
                             lowercase in responses
 TLS implementation          Rust ``rustls``
 =========================== =================================
+
+Other limitations:
+
+* ``CONCURRENT_CONNECTIONS_PER_HANDLER`` only limits the connections in use,
+  idle connections kept for reuse are not closed to stay within it.
 
 Notable features supported by the library but not implemented:
 

@@ -55,6 +55,7 @@ class TestHttp(PyreqwestDownloadHandlerMixin, TestHttpBase):
     # cannot read response header values that are not ASCII
     handler_non_utf8_request_header_handling = "replace"
     handler_supports_non_ascii_response_headers = False
+    handler_limits_idle_connections = False
     handler_request_header_name_case = "title"
     handler_response_header_name_case = "lower"
     always_present_req_headers = frozenset({"Accept", "User-Agent"})
@@ -110,6 +111,7 @@ class TestHttps(PyreqwestDownloadHandlerMixin, TestHttpsBase):
     handler_supports_idna_rejected_hostnames = False
     handler_non_utf8_request_header_handling = "replace"
     handler_supports_non_ascii_response_headers = False
+    handler_limits_idle_connections = False
     handler_supports_keylogging = False
     always_present_req_headers = TestHttp.always_present_req_headers
 

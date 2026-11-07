@@ -127,7 +127,7 @@ class CurlCffiDownloadHandler(_Base):
                 (f"{name}: {value}" if value else f"{name};").encode()
                 for name, value in proxy_headers
             ]
-        return curl_cffi.AsyncSession(
+        session: curl_cffi.AsyncSession[curl_cffi.Response] = curl_cffi.AsyncSession(
             interface=self._get_bind_address_host(),
             allow_redirects=False,
             discard_cookies=True,
@@ -139,6 +139,14 @@ class CurlCffiDownloadHandler(_Base):
             http_version=self._http_version,
             curl_options=curl_options,
         )
+        if self._pool_size_total:
+            # Low-level dance because of https://github.com/lexiforest/curl_cffi/issues/901
+            curl_cffi.lib.curl_multi_setopt(
+                session.acurl._curlm,
+                curl_cffi.CurlMOpt.MAX_TOTAL_CONNECTIONS,
+                curl_cffi.ffi.cast("void *", self._pool_size_total),
+            )
+        return session
 
     def _get_session(
         self,
