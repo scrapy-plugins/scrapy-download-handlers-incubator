@@ -72,7 +72,7 @@ class PyreqwestDownloadHandler(_Base):
             .default_cookie_store(False)
             .no_proxy()
             # hard limit on simultaneous connections
-            .max_connections(self._pool_size_total)
+            .max_connections(self._pool_size_total or None)
             # number of idle connections per host in the pool (newer extra ones are not put there)
             .pool_max_idle_per_host(self._pool_size_per_host)
             .gzip(False)

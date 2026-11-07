@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 from scrapy import Request
+from scrapy.utils.misc import build_from_crawler
+from scrapy.utils.test import get_crawler
 
 from scrapy_download_handlers_incubator import PyreqwestDownloadHandler
 from tests.test_handlers_base import (
@@ -189,3 +191,14 @@ class TestHttpsWithCrawler(TestHttpWithCrawler):
 @pytest.mark.requires_internet
 class TestRealWebsite(PyreqwestDownloadHandlerMixin, TestRealWebsiteBase):
     handler_supports_tls_logging = False
+
+
+@coroutine_test
+async def test_no_connection_limit(mockserver: MockServer) -> None:
+    crawler = get_crawler(settings_dict={"CONCURRENT_CONNECTIONS_PER_HANDLER": 0})
+    handler = build_from_crawler(PyreqwestDownloadHandler, crawler)
+    try:
+        response = await handler.download_request(Request(mockserver.url("/text")))
+    finally:
+        await handler.close()
+    assert response.body == b"Works"
