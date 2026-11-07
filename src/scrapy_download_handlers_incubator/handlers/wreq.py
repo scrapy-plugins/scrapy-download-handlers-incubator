@@ -83,6 +83,7 @@ class WreqDownloadHandler(_Base):
                 kwargs["emulation"] = _parse_emulation(emulation)
             except ValueError as e:
                 raise NotConfigured(f"Invalid WREQ_EMULATION value: {e}") from e
+        self._emulation: bool = "emulation" in kwargs
         self._client = wreq.Client(
             http1_only=not crawler.settings.getbool("WREQ_HTTP2_ENABLED"),
             # number of host buckets in the pool (older extra ones are discarded)
@@ -142,14 +143,16 @@ class WreqDownloadHandler(_Base):
         return wreq.Proxy.all(proxy_url, **kwargs)
 
     def _get_request_kwargs(self, request: Request) -> dict[str, Any]:
-        headers = wreq.HeaderMap()
-        for name, value in self._utf8_request_headers(request):
-            headers.append(name, value)
-        kwargs: dict[str, Any] = {"headers": headers}
+        header_pairs = self._utf8_request_headers(request)
+        kwargs: dict[str, Any] = {}
         if request.body:
             kwargs["body"] = request.body
         elif request.method == "POST" and "Content-Length" not in request.headers:
-            headers.append("Content-Length", "0")
+            header_pairs.append(("Content-Length", "0"))
+        headers = wreq.HeaderMap()
+        for name, value in header_pairs:
+            headers.append(name, value)
+        kwargs["headers"] = headers
         if (proxy := self._get_proxy(request)) is not None:
             kwargs["proxy"] = proxy
         if (
@@ -158,6 +161,10 @@ class WreqDownloadHandler(_Base):
             kwargs["local_address"] = ipaddress.ip_address(bind_address[0])
         if (emulation := request.meta.get("wreq_emulation")) is not None:
             kwargs["emulation"] = _parse_emulation(emulation)
+        elif not self._emulation:
+            # keeps the name case, but would also move these headers before
+            # the emulated ones
+            kwargs["orig_headers"] = [name for name, _ in header_pairs]
         return kwargs
 
     @asynccontextmanager

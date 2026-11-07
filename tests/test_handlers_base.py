@@ -78,7 +78,7 @@ if TYPE_CHECKING:
 
 BadHeaderHandling = Literal["skip-bad", "skip-rest", "fail"]
 NonUtf8RequestHeaderHandling = Literal["send", "replace"]
-HeaderNameCase = Literal["as-is", "canonical"]
+HeaderNameCase = Literal["as-is", "canonical", "title", "lower"]
 
 
 class TestHttpBase(ABC):
@@ -114,7 +114,17 @@ class TestHttpBase(ABC):
     #         follow it;
     # "fail": the response cannot be downloaded at all.
     handler_bad_header_handling: BadHeaderHandling = "skip-bad"
+    # How the handler writes request header names over HTTP/1.1, compared to
+    # their spelling in Request.headers:
+    # "as-is": unchanged;
+    # "canonical": in the canonical form of Twisted's Headers, e.g. "X-Api-Key"
+    #         for "x-API-key" and "DNT" for "dnt";
+    # "title": each dash-separated word capitalized, e.g. "X-Api-Key" for
+    #         "x-API-key" and "Dnt" for "dnt";
+    # "lower": lowercased.
     handler_request_header_name_case: HeaderNameCase = "as-is"
+    # How the handler spells response header names in Response.headers,
+    # compared to their spelling on the wire, with the same options as above.
     handler_response_header_name_case: HeaderNameCase = "as-is"
     handler_supports_body_file: bool = True
     # default headers added by the underlying library that cannot be suppressed
@@ -1330,6 +1340,8 @@ class TestHttpBase(ABC):
         expected = {
             "as-is": [b"dnt", b"x-API-key"],
             "canonical": [b"DNT", b"X-Api-Key"],
+            "title": [b"Dnt", b"X-Api-Key"],
+            "lower": [b"dnt", b"x-api-key"],
         }
         assert sent == expected[self.handler_request_header_name_case]
 
@@ -1354,6 +1366,8 @@ class TestHttpBase(ABC):
             # differently-cased names are stored with the first spelling
             "as-is": [b"etag", b"x-custom-HEADER"],
             "canonical": [b"ETag", b"X-Custom-Header"],
+            "title": [b"Etag", b"X-Custom-Header"],
+            "lower": [b"etag", b"x-custom-header"],
         }
         assert received == expected[self.handler_response_header_name_case]
         assert response.headers.getlist("X-Custom-Header") == [b"a", b"c"]

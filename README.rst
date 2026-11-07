@@ -117,6 +117,7 @@ TLS verbose logging            Yes
 ``response.ip_address``        Yes
 ``response.certificate``       Yes (DER bytes)
 Per-request ``bindaddress``    No (not supported by the library)
+HTTP/1.1 header name case      As written
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 TLS implementation             Standard library ``ssl``
 ============================== ========================================
@@ -161,6 +162,7 @@ TLS verbose logging            No (not supported by the library)
 ``response.ip_address``        Yes
 ``response.certificate``       No (not supported by the library)
 Per-request ``bindaddress``    No (not supported by the library)
+HTTP/1.1 header name case      As written
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 TLS implementation             ``libcurl``
 ============================== ========================================
@@ -244,6 +246,7 @@ TLS verbose logging            Yes
 ``response.ip_address``        Yes
 ``response.certificate``       Yes (DER bytes)
 Per-request ``bindaddress``    No (not supported by the library)
+HTTP/1.1 header name case      As written
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 TLS implementation             Standard library ``ssl``
 ============================== ========================================
@@ -299,6 +302,7 @@ TLS verbose logging            Yes
 ``response.ip_address``        Yes
 ``response.certificate``       Yes (DER bytes)
 Per-request ``bindaddress``    No (not supported by the library)
+HTTP/1.1 header name case      Capitalized in requests, as written in responses
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 TLS implementation             Standard library ``ssl``
 ============================== ==================================================
@@ -352,6 +356,8 @@ TLS verbose logging         No (not supported by the library)
 ``response.ip_address``     No (not supported by the library)
 ``response.certificate``    No (not supported by the library)
 Per-request ``bindaddress`` No (not supported by the library)
+HTTP/1.1 header name case   Capitalized in requests,
+                            lowercase in responses
 TLS implementation          Rust ``rustls``
 =========================== =================================
 
@@ -401,6 +407,8 @@ TLS verbose logging            No (not supported by the library)
 ``response.ip_address``        Yes
 ``response.certificate``       Yes (DER bytes)
 Per-request ``bindaddress``    Yes
+HTTP/1.1 header name case      As written in requests (unless
+                               emulating), lowercase in responses
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 TLS implementation             BoringSSL
 ============================== ========================================
