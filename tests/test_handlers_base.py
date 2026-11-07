@@ -28,7 +28,14 @@ from scrapy.exceptions import (
     StopDownload,
     UnsupportedURLSchemeError,
 )
-from scrapy.http import Headers, HtmlResponse, Request, Response, TextResponse
+from scrapy.http import (
+    BodyFileResponse,
+    Headers,
+    HtmlResponse,
+    Request,
+    Response,
+    TextResponse,
+)
 from scrapy.utils._deps_compat import TWISTED_TLS_LIMITS_OFFBY1
 from scrapy.utils.defer import deferred_from_coro, maybe_deferred_to_future
 from scrapy.utils.misc import build_from_crawler
@@ -42,6 +49,7 @@ from twisted.python.failure import Failure
 from tests.mockserver.mitm_proxy import wrong_credentials
 from tests.mockserver.proxy_echo import ProxyEchoMockServer
 from tests.mockserver.proxy_stalling import StallingProxy
+from tests.mockserver.raw_http import RawHttpServer
 from tests.mockserver.simple_https import SimpleMockServer
 from tests.mockserver.utils import _free_port
 from tests.spiders import (
@@ -70,6 +78,7 @@ if TYPE_CHECKING:
 
 BadHeaderHandling = Literal["skip-bad", "skip-rest", "fail"]
 NonUtf8RequestHeaderHandling = Literal["send", "replace"]
+HeaderNameCase = Literal["as-is", "canonical"]
 
 
 class TestHttpBase(ABC):
@@ -105,6 +114,9 @@ class TestHttpBase(ABC):
     #         follow it;
     # "fail": the response cannot be downloaded at all.
     handler_bad_header_handling: BadHeaderHandling = "skip-bad"
+    handler_request_header_name_case: HeaderNameCase = "as-is"
+    handler_response_header_name_case: HeaderNameCase = "as-is"
+    handler_supports_body_file: bool = True
     # default headers added by the underlying library that cannot be suppressed
     always_present_req_headers: ClassVar[frozenset[str]] = frozenset()
     default_handler_settings: ClassVar[dict[str, Any]] = {}
@@ -296,7 +308,10 @@ class TestHttpBase(ABC):
         assert response.status == HTTPStatus.OK
         body = json.loads(response.body.decode())
         assert "headers" in body
-        # assert body["headers"]["X-Custom-Header"] == ["foo", "bar"]
+        expected = (
+            ["foo", "bar"] if not self.handler_merges_request_headers else ["foo,bar"]
+        )
+        assert body["headers"]["X-Custom-Header"] == expected
 
     # "café" can also be encoded as latin-1, "€" cannot
     @pytest.mark.parametrize("value", ["café", "€"])
@@ -1222,6 +1237,199 @@ class TestHttpBase(ABC):
         async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
         assert response.body == path.encode()
+
+    @staticmethod
+    def _other_host(url: str) -> str:
+        """Return *url* pointing at the same server through a different name,
+        so that its connection cannot be reused."""
+        return url.replace("127.0.0.1", "localhost")
+
+    @coroutine_test
+    async def test_no_keepalive(self, mockserver: MockServer) -> None:
+        url = mockserver.url("/connection-id", is_secure=self.is_secure)
+        settings_dict = {"CONNECTION_KEEPALIVE_TIMEOUT": 0}
+        assert len(await self._connection_ids([url, url], settings_dict)) == 2
+
+    @coroutine_test
+    async def test_connection_limit(self, mockserver: MockServer) -> None:
+        url = mockserver.url("/connection-id", is_secure=self.is_secure)
+        urls = [url, self._other_host(url)] * 2
+
+        assert len(await self._connection_ids(urls, {})) == 2
+
+        settings_dict = {"CONCURRENT_CONNECTIONS_PER_HANDLER": 1}
+        assert len(await self._connection_ids(urls, settings_dict)) == 4
+
+        settings_dict = {"CONCURRENT_CONNECTIONS_PER_HANDLER": 0}
+        assert len(await self._connection_ids(urls, settings_dict)) == 2
+
+    @coroutine_test
+    async def test_connection_limit_spares_connections_in_use(
+        self, mockserver: MockServer
+    ) -> None:
+        url = mockserver.url("/connection-id", is_secure=self.is_secure)
+        slow_url = mockserver.url("/connection-id?delay=0.5", is_secure=self.is_secure)
+        other_url = self._other_host(url)
+        async with self.get_dh({"CONCURRENT_CONNECTIONS_PER_HANDLER": 1}) as dh:
+            first = await dh.download_request(Request(url))
+            results = await maybe_deferred_to_future(
+                DeferredList(
+                    [
+                        deferred_from_coro(dh.download_request(Request(slow_url))),
+                        deferred_from_coro(dh.download_request(Request(other_url))),
+                    ],
+                    fireOnOneErrback=True,
+                )
+            )
+        ids = {response.text for _, response in results}
+        # the connection serving the slow request was kept even though the
+        # request to the other host had to exceed the limit to get one
+        assert first.text in ids
+        assert len(ids) == 2
+
+    @coroutine_test
+    async def test_connection_limit_with_several_connections_per_host(
+        self, mockserver: MockServer
+    ) -> None:
+        if self.http2:
+            pytest.skip("HTTP/2 uses a single connection per host")
+        url = mockserver.url("/connection-id", is_secure=self.is_secure)
+        slow_url = mockserver.url("/connection-id?delay=0.5", is_secure=self.is_secure)
+        other_url = self._other_host(url)
+        async with self.get_dh({"CONCURRENT_CONNECTIONS_PER_HANDLER": 2}) as dh:
+            results = await maybe_deferred_to_future(
+                DeferredList(
+                    [
+                        deferred_from_coro(dh.download_request(Request(slow_url)))
+                        for _ in range(2)
+                    ],
+                    fireOnOneErrback=True,
+                )
+            )
+            ids = {response.text for _, response in results}
+            assert len(ids) == 2
+            # only one of the two connections to the host makes room for the
+            # connection to the other host, so the other one stays reusable
+            await dh.download_request(Request(other_url))
+            reused = await dh.download_request(Request(url))
+        assert reused.text in ids
+
+    @coroutine_test
+    async def test_request_header_name_case(self) -> None:
+        if self.is_secure:
+            pytest.skip("RawHttpServer only supports plain HTTP")
+        with RawHttpServer() as server:
+            request = Request(server.url, headers={"x-API-key": "a", "dnt": "1"})
+            async with self.get_dh() as download_handler:
+                await download_handler.download_request(request)
+        sent = sorted(
+            name
+            for name in server.request_header_names()
+            if name.lower() in {b"x-api-key", b"dnt"}
+        )
+        expected = {
+            "as-is": [b"dnt", b"x-API-key"],
+            "canonical": [b"DNT", b"X-Api-Key"],
+        }
+        assert sent == expected[self.handler_request_header_name_case]
+
+    @coroutine_test
+    async def test_response_header_name_case(self) -> None:
+        if self.is_secure:
+            pytest.skip("RawHttpServer only supports plain HTTP")
+        response_headers = [
+            (b"x-custom-HEADER", b"a"),
+            (b"etag", b'"b"'),
+            (b"X-Custom-Header", b"c"),
+        ]
+        with RawHttpServer(response_headers) as server:
+            async with self.get_dh() as download_handler:
+                response = await download_handler.download_request(Request(server.url))
+        received = sorted(
+            name
+            for name in response.headers
+            if name.lower() in {b"x-custom-header", b"etag"}
+        )
+        expected = {
+            # differently-cased names are stored with the first spelling
+            "as-is": [b"etag", b"x-custom-HEADER"],
+            "canonical": [b"ETag", b"X-Custom-Header"],
+        }
+        assert received == expected[self.handler_response_header_name_case]
+        assert response.headers.getlist("X-Custom-Header") == [b"a", b"c"]
+
+    @pytest.mark.parametrize(
+        ("meta", "warns"),
+        [
+            pytest.param({"download_maxsize": 100}, False, id="maxsize-only"),
+            pytest.param(
+                {"download_maxsize": 100, "download_warnsize": 4},
+                True,
+                id="maxsize-and-warnsize",
+            ),
+        ],
+    )
+    @coroutine_test
+    async def test_download_warnsize_with_request_maxsize(
+        self,
+        caplog: pytest.LogCaptureFixture,
+        mockserver: MockServer,
+        meta: dict[str, int],
+        warns: bool,
+    ) -> None:
+        request = Request(mockserver.url("/text", is_secure=self.is_secure), meta=meta)
+        async with self.get_dh({"DOWNLOAD_WARNSIZE": 4}) as download_handler:
+            response = await download_handler.download_request(request)
+        assert response.body == b"Works"
+        assert ("download warn size (4)" in caplog.text) is warns
+
+    @coroutine_test
+    async def test_body_file(self, mockserver: MockServer, tmp_path: Path) -> None:
+        if not self.handler_supports_body_file:
+            pytest.skip("The handler does not support body_file")
+        body_file = tmp_path / "body"
+        request = Request(
+            mockserver.url("/text", is_secure=self.is_secure),
+            meta={"body_file": body_file},
+        )
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert isinstance(response, BodyFileResponse)
+        assert response.body_file == body_file
+        assert body_file.read_bytes() == b"Works"
+
+    @coroutine_test
+    async def test_body_file_empty_response(
+        self, mockserver: MockServer, tmp_path: Path
+    ) -> None:
+        if not self.handler_supports_body_file:
+            pytest.skip("The handler does not support body_file")
+        body_file = tmp_path / "body"
+        request = Request(
+            mockserver.url("/text", is_secure=self.is_secure),
+            method="HEAD",
+            meta={"body_file": body_file},
+        )
+        async with self.get_dh() as download_handler:
+            response = await download_handler.download_request(request)
+        assert isinstance(response, BodyFileResponse)
+        assert body_file.read_bytes() == b""
+
+    @coroutine_test
+    async def test_body_file_maxsize(
+        self, mockserver: MockServer, tmp_path: Path
+    ) -> None:
+        if not self.handler_supports_body_file:
+            pytest.skip("The handler does not support body_file")
+        body_file = tmp_path / "body"
+        request = Request(
+            mockserver.url("/largechunkedfile", is_secure=self.is_secure),
+            meta={"body_file": body_file},
+        )
+        async with self.get_dh({"DOWNLOAD_MAXSIZE": 1_500}) as download_handler:
+            with pytest.raises(DownloadCancelledError):
+                await download_handler.download_request(request)
+        assert body_file.read_bytes() == b""
 
 
 class TestHttpsBase(TestHttpBase, ABC):
