@@ -18,6 +18,7 @@ deps = [
     "pytest>=9",
     "pytest-cov>=7.0.0",
     "pytest-rerunfailures",
+    "pytest-timeout",
     "pytest-xdist>=3.7.0",
     "Twisted[http2]>=25.5.0",
     { replace = "if", condition = "not factor.noreactor", then = ["pytest-twisted"], extend = true },

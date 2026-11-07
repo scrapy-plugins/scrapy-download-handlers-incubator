@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import ipaddress
 import logging
-from contextlib import asynccontextmanager
+from contextlib import aclosing, asynccontextmanager
 from importlib.util import find_spec
 from types import MethodType
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 from urllib.parse import urlparse
 
 from scrapy.exceptions import (
@@ -236,6 +236,31 @@ class NiquestsDownloadHandler(_Base):
             urllib3.exceptions.HTTPError,
         ) as e:
             raise DownloadFailedError(str(e)) from e
+        finally:
+            await self._wake_pool_waiters(session, request.url, proxy)
+
+    @staticmethod
+    async def _wake_pool_waiters(
+        session: niquests.AsyncSession, url: str, proxy: str | None
+    ) -> None:
+        # When all host pools are taken, urllib3-future makes requests to new
+        # hosts wait for an idle pool to replace, but only wakes them up when
+        # a pool that is already idle is released, so we release one.
+        try:
+            adapter = cast(
+                "niquests.adapters.AsyncHTTPAdapter", session.get_adapter(url)
+            )
+        except niquests.exceptions.InvalidSchema:
+            return
+        manager = adapter.proxy_manager.get(proxy) if proxy else adapter.poolmanager
+        if manager is None:
+            return
+        pools = manager.pools
+        if pools.busy or pools.maxsize is None or pools.rsize() < pools.maxsize:
+            return
+        async with aclosing(pools.iter_idle()) as idle_pools:
+            async for _ in idle_pools:
+                break
 
     @staticmethod
     def _extract_headers(response: niquests.AsyncResponse) -> Headers:

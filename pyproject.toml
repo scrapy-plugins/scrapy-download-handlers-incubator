@@ -131,6 +131,7 @@ filterwarnings = [
     "ignore:Unknown config option. asyncio_:pytest.PytestConfigWarning",
 ]
 strict = true
+timeout = "120"
 # due to pytest-asyncio-specific options
 strict_config = false
 
