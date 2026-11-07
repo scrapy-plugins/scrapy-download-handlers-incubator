@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import ipaddress
 import logging
+import math
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
@@ -85,6 +86,12 @@ class CurlCffiDownloadHandler(_Base):
                 else curl_cffi.CurlSslVersion.MAX_DEFAULT
             )
             curl_options[curl_cffi.CurlOpt.SSLVERSION] = min_part | max_part
+        if self._keepalive_timeout:
+            curl_options[curl_cffi.CurlOpt.MAXAGE_CONN] = math.ceil(
+                self._keepalive_timeout
+            )
+        else:
+            curl_options[curl_cffi.CurlOpt.FORBID_REUSE] = 1
         self._verify_certificates: bool = verify_certificates
         self._curl_options: dict[curl_cffi.CurlOpt, object] = curl_options
         self._max_clients: int = crawler.settings.getint("CONCURRENT_REQUESTS")

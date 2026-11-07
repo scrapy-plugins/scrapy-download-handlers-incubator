@@ -80,6 +80,10 @@ class NiquestsDownloadHandler(_Base):
         self, proxy_headers: tuple[tuple[str, str], ...] = ()
     ) -> niquests.AsyncSession:
         tls_min, tls_max = self._tls_limits
+        kwargs: dict[str, Any] = {}
+        if not self._keepalive_timeout:
+            # idle connections older than this are not reused
+            kwargs["keepalive_delay"] = 0
         session = niquests.AsyncSession(
             headers={},
             source_address=self._bind_address,
@@ -95,6 +99,7 @@ class NiquestsDownloadHandler(_Base):
                 min_version=tls_min,
                 max_version=tls_max,
             ),
+            **kwargs,
         )
         session.trust_env = False
         if not self._verify_certificates:

@@ -88,7 +88,10 @@ class WreqDownloadHandler(_Base):
             # number of host buckets in the pool (older extra ones are discarded)
             pool_max_size=self._pool_size_total,
             # number of idle connections per host in the pool (newer extra ones are not put there)
-            pool_max_idle_per_host=self._pool_size_per_host,
+            pool_max_idle_per_host=(
+                self._pool_size_per_host if self._keepalive_timeout else 0
+            ),
+            pool_idle_timeout=timedelta(seconds=self._keepalive_timeout),
             tls_verify=crawler.settings.getbool("DOWNLOAD_VERIFY_CERTIFICATES"),
             tls_info=True,
             redirect=wreq.redirect.Policy.none(),

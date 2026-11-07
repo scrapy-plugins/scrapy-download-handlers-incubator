@@ -303,6 +303,11 @@ Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 TLS implementation             Standard library ``ssl``
 ============================== ==================================================
 
+Other limitations:
+
+* ``CONNECTION_KEEPALIVE_TIMEOUT`` is only supported with the value of ``0``,
+  and idle connections are closed only when the pool tries to reuse them.
+
 Notable features supported by the library but not implemented:
 
 * Custom DNS resolvers

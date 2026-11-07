@@ -70,7 +70,10 @@ class PyreqwestDownloadHandler(_Base):
             # hard limit on simultaneous connections
             .max_connections(self._pool_size_total or None)
             # number of idle connections per host in the pool (newer extra ones are not put there)
-            .pool_max_idle_per_host(self._pool_size_per_host)
+            .pool_max_idle_per_host(
+                self._pool_size_per_host if self._keepalive_timeout else 0
+            )
+            .pool_idle_timeout(timedelta(seconds=self._keepalive_timeout))
             .gzip(False)
             .deflate(False)
             .brotli(False)
