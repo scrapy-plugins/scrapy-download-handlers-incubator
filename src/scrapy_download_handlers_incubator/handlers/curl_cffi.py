@@ -92,6 +92,7 @@ class CurlCffiDownloadHandler(_Base):
             curl_options[curl_cffi.CurlOpt.SSLVERSION] = min_part | max_part
         self._verify_certificates: bool = verify_certificates
         self._curl_options: dict[curl_cffi.CurlOpt, object] = curl_options
+        self._max_clients: int = crawler.settings.getint("CONCURRENT_REQUESTS")
         # https://curl-cffi.readthedocs.io/en/latest/advanced.html#selecting-http-version
         # The mapping is in curl_cffi.requests.utils.normalize_http_version()
         self._http_version: curl_cffi.requests.utils.HttpVersionLiteral = (
@@ -131,8 +132,8 @@ class CurlCffiDownloadHandler(_Base):
             trust_env=False,
             verify=self._verify_certificates,
             default_headers=False,
-            # hard limit on simultaneous connections
-            max_clients=self._pool_size_total,
+            # hard limit on simultaneous requests
+            max_clients=self._max_clients,
             http_version=self._http_version,
             curl_options=curl_options,
         )

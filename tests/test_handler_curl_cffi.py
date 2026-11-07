@@ -308,6 +308,22 @@ async def test_sessions() -> None:
         await handler.close()
 
 
+@pytest.mark.parametrize("connection_limit", [0, 1_000_000])
+@coroutine_test
+async def test_max_clients(connection_limit: int) -> None:
+    crawler = get_crawler(
+        settings_dict={
+            "CONCURRENT_REQUESTS": 7,
+            "CONCURRENT_CONNECTIONS_PER_HANDLER": connection_limit,
+        }
+    )
+    handler = build_from_crawler(CurlCffiDownloadHandler, crawler)
+    try:
+        assert handler._get_session(None).max_clients == 7
+    finally:
+        await handler.close()
+
+
 @coroutine_test
 async def test_proxy_headers_ignored_for_socks(
     caplog: pytest.LogCaptureFixture,
