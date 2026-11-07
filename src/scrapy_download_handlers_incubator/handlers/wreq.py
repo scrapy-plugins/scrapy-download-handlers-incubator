@@ -15,14 +15,8 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
-from scrapy.utils._download_handlers import normalize_bind_address
-
-try:
-    from scrapy.utils._ssl import _get_keylog_filename, _get_tls_version_limits
-except ImportError:  # Scrapy 2.19
-    from scrapy.utils.ssl import _get_keylog_filename, _get_tls_version_limits  # type: ignore[attr-defined,no-redef]
-
-from scrapy_download_handlers_incubator.utils import get_proxy_headers
+from scrapy.utils._download_handlers import get_proxy_headers, normalize_bind_address
+from scrapy.utils._ssl import _get_keylog_filename, _get_tls_version_limits
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
@@ -89,12 +83,16 @@ class WreqDownloadHandler(_Base):
                 kwargs["emulation"] = _parse_emulation(emulation)
             except ValueError as e:
                 raise NotConfigured(f"Invalid WREQ_EMULATION value: {e}") from e
+        self._emulation: bool = "emulation" in kwargs
         self._client = wreq.Client(
             http1_only=not crawler.settings.getbool("WREQ_HTTP2_ENABLED"),
             # number of host buckets in the pool (older extra ones are discarded)
             pool_max_size=self._pool_size_total,
             # number of idle connections per host in the pool (newer extra ones are not put there)
-            pool_max_idle_per_host=self._pool_size_per_host,
+            pool_max_idle_per_host=(
+                self._pool_size_per_host if self._keepalive_timeout else 0
+            ),
+            pool_idle_timeout=timedelta(seconds=self._keepalive_timeout),
             tls_verify=crawler.settings.getbool("DOWNLOAD_VERIFY_CERTIFICATES"),
             tls_info=True,
             redirect=wreq.redirect.Policy.none(),
@@ -145,14 +143,16 @@ class WreqDownloadHandler(_Base):
         return wreq.Proxy.all(proxy_url, **kwargs)
 
     def _get_request_kwargs(self, request: Request) -> dict[str, Any]:
-        headers = wreq.HeaderMap()
-        for name, value in self._utf8_request_headers(request):
-            headers.append(name, value)
-        kwargs: dict[str, Any] = {"headers": headers}
+        header_pairs = self._utf8_request_headers(request)
+        kwargs: dict[str, Any] = {}
         if request.body:
             kwargs["body"] = request.body
         elif request.method == "POST" and "Content-Length" not in request.headers:
-            headers.append("Content-Length", "0")
+            header_pairs.append(("Content-Length", "0"))
+        headers = wreq.HeaderMap()
+        for name, value in header_pairs:
+            headers.append(name, value)
+        kwargs["headers"] = headers
         if (proxy := self._get_proxy(request)) is not None:
             kwargs["proxy"] = proxy
         if (
@@ -161,6 +161,10 @@ class WreqDownloadHandler(_Base):
             kwargs["local_address"] = ipaddress.ip_address(bind_address[0])
         if (emulation := request.meta.get("wreq_emulation")) is not None:
             kwargs["emulation"] = _parse_emulation(emulation)
+        elif not self._emulation:
+            # keeps the name case, but would also move these headers before
+            # the emulated ones
+            kwargs["orig_headers"] = [name for name, _ in header_pairs]
         return kwargs
 
     @asynccontextmanager

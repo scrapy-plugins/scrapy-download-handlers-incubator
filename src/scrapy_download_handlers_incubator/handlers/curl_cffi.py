@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import ipaddress
 import logging
+import math
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
@@ -16,13 +17,8 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
-
-try:
-    from scrapy.utils._ssl import _get_tls_version_limits
-except ImportError:  # Scrapy 2.19
-    from scrapy.utils.ssl import _get_tls_version_limits  # type: ignore[attr-defined,no-redef]
-
-from scrapy_download_handlers_incubator.utils import get_proxy_headers
+from scrapy.utils._download_handlers import get_proxy_headers
+from scrapy.utils._ssl import _get_tls_version_limits
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
@@ -90,6 +86,12 @@ class CurlCffiDownloadHandler(_Base):
                 else curl_cffi.CurlSslVersion.MAX_DEFAULT
             )
             curl_options[curl_cffi.CurlOpt.SSLVERSION] = min_part | max_part
+        if self._keepalive_timeout:
+            curl_options[curl_cffi.CurlOpt.MAXAGE_CONN] = math.ceil(
+                self._keepalive_timeout
+            )
+        else:
+            curl_options[curl_cffi.CurlOpt.FORBID_REUSE] = 1
         self._verify_certificates: bool = verify_certificates
         self._curl_options: dict[curl_cffi.CurlOpt, object] = curl_options
         self._max_clients: int = crawler.settings.getint("CONCURRENT_REQUESTS")
@@ -125,7 +127,7 @@ class CurlCffiDownloadHandler(_Base):
                 (f"{name}: {value}" if value else f"{name};").encode()
                 for name, value in proxy_headers
             ]
-        return curl_cffi.AsyncSession(
+        session: curl_cffi.AsyncSession[curl_cffi.Response] = curl_cffi.AsyncSession(
             interface=self._get_bind_address_host(),
             allow_redirects=False,
             discard_cookies=True,
@@ -137,6 +139,14 @@ class CurlCffiDownloadHandler(_Base):
             http_version=self._http_version,
             curl_options=curl_options,
         )
+        if self._pool_size_total:
+            # Low-level dance because of https://github.com/lexiforest/curl_cffi/issues/901
+            curl_cffi.lib.curl_multi_setopt(
+                session.acurl._curlm,
+                curl_cffi.CurlMOpt.MAX_TOTAL_CONNECTIONS,
+                curl_cffi.ffi.cast("void *", self._pool_size_total),
+            )
+        return session
 
     def _get_session(
         self,

@@ -30,7 +30,7 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "Scrapy>=2.19,<2.21",
+    "Scrapy>=2.20,<2.21",
     "aiodns>=3.3.0",
 ]
 
@@ -131,6 +131,7 @@ filterwarnings = [
     "ignore:Unknown config option. asyncio_:pytest.PytestConfigWarning",
 ]
 strict = true
+timeout = "120"
 # due to pytest-asyncio-specific options
 strict_config = false
 

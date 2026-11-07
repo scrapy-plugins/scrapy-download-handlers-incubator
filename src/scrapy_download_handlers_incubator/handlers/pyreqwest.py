@@ -14,11 +14,7 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
-
-try:
-    from scrapy.utils._ssl import _get_tls_version_limits
-except ImportError:  # Scrapy 2.19
-    from scrapy.utils.ssl import _get_tls_version_limits  # type: ignore[attr-defined,no-redef]
+from scrapy.utils._ssl import _get_tls_version_limits
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
@@ -71,10 +67,14 @@ class PyreqwestDownloadHandler(_Base):
             .follow_redirects(False)
             .default_cookie_store(False)
             .no_proxy()
-            # hard limit on simultaneous connections
+            # hard limit on simultaneous requests, as there is no limit for
+            # idle connections other than the per-host one
             .max_connections(self._pool_size_total or None)
             # number of idle connections per host in the pool (newer extra ones are not put there)
-            .pool_max_idle_per_host(self._pool_size_per_host)
+            .pool_max_idle_per_host(
+                self._pool_size_per_host if self._keepalive_timeout else 0
+            )
+            .pool_idle_timeout(timedelta(seconds=self._keepalive_timeout))
             .gzip(False)
             .deflate(False)
             .brotli(False)

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import ipaddress
 import logging
-from contextlib import asynccontextmanager
+from contextlib import aclosing, asynccontextmanager
 from importlib.util import find_spec
 from types import MethodType
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 from urllib.parse import urlparse
 
 from scrapy.exceptions import (
@@ -17,22 +17,13 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
+from scrapy.utils._download_handlers import get_proxy_headers
+from scrapy.utils._ssl import (
+    _STDLIB_VERSION_MAP,
+    _get_tls_version_limits,
+    _make_insecure_ssl_ctx,
+)
 from scrapy.utils.python import _iter_exc_causes
-
-try:
-    from scrapy.utils._ssl import (
-        _STDLIB_VERSION_MAP,
-        _get_tls_version_limits,
-        _make_insecure_ssl_ctx,
-    )
-except ImportError:  # Scrapy 2.19
-    from scrapy.utils.ssl import (  # type: ignore[attr-defined,no-redef]
-        _STDLIB_VERSION_MAP,
-        _get_tls_version_limits,
-        _make_insecure_ssl_ctx,
-    )
-
-from scrapy_download_handlers_incubator.utils import get_proxy_headers
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
@@ -89,13 +80,17 @@ class NiquestsDownloadHandler(_Base):
         self, proxy_headers: tuple[tuple[str, str], ...] = ()
     ) -> niquests.AsyncSession:
         tls_min, tls_max = self._tls_limits
+        kwargs: dict[str, Any] = {}
+        if not self._keepalive_timeout:
+            # idle connections older than this are not reused
+            kwargs["keepalive_delay"] = 0
         session = niquests.AsyncSession(
             headers={},
             source_address=self._bind_address,
             disable_http2=not self._enable_h2,
             disable_http3=True,
             # number of host buckets in the pool (older extra ones are discarded)
-            pool_connections=self._pool_size_total,
+            pool_connections=self._pool_size_total or None,  # type: ignore[arg-type]
             # number of connections per host in the pool (newer extra ones are not put there)
             pool_maxsize=self._pool_size_per_host,
             allow_incoming_cookies=False,
@@ -104,6 +99,7 @@ class NiquestsDownloadHandler(_Base):
                 min_version=tls_min,
                 max_version=tls_max,
             ),
+            **kwargs,
         )
         session.trust_env = False
         if not self._verify_certificates:
@@ -240,6 +236,37 @@ class NiquestsDownloadHandler(_Base):
             urllib3.exceptions.HTTPError,
         ) as e:
             raise DownloadFailedError(str(e)) from e
+        finally:
+            await self._release_pools(session, request.url, proxy)
+
+    @staticmethod
+    async def _release_pools(
+        session: niquests.AsyncSession, url: str, proxy: str | None
+    ) -> None:
+        try:
+            adapter = cast(
+                "niquests.adapters.AsyncHTTPAdapter", session.get_adapter(url)
+            )
+        except niquests.exceptions.InvalidSchema:
+            return
+        manager = adapter.proxy_manager.get(proxy) if proxy else adapter.poolmanager
+        if manager is None:
+            return
+        pools = manager.pools
+        # niquests doesn't release the host pool when a request fails, and the
+        # pool stays held until the same task makes another request
+        # (https://github.com/jawah/niquests/issues/488)
+        if pools.busy:
+            pools.release()
+        # When all host pools are taken, urllib3-future makes requests to new
+        # hosts wait for an idle pool to replace, but only wakes them up when
+        # a pool that is already idle is released, so we release one
+        # (https://github.com/jawah/urllib3.future/issues/447).
+        if pools.maxsize is None or pools.rsize() < pools.maxsize:
+            return
+        async with aclosing(pools.iter_idle()) as idle_pools:
+            async for _ in idle_pools:
+                break
 
     @staticmethod
     def _extract_headers(response: niquests.AsyncResponse) -> Headers:

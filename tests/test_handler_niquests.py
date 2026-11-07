@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 from scrapy import Request
+from scrapy.exceptions import DownloadConnectionRefusedError
 from scrapy.utils.misc import build_from_crawler
 from scrapy.utils.test import get_crawler
 
 from scrapy_download_handlers_incubator import NiquestsDownloadHandler
 from scrapy_download_handlers_incubator.handlers.niquests import niquests  # type: ignore[attr-defined]
+from tests.mockserver.utils import _free_port
 from tests.test_handlers_base import (
     TestHttpBase,
     TestHttpProxyBase,
@@ -55,6 +58,7 @@ class TestHttp(NiquestsDownloadHandlerMixin, TestHttpBase):
     # urllib3.future percent-encodes RFC 3986-invalid characters, e.g. [ into %5B
     handler_supports_verbatim_urls = False
     handler_bad_header_handling = "fail"
+    handler_request_header_name_case = "title"
     # urllib3.future always adds these, even with an empty session.headers
     always_present_req_headers = frozenset({"Accept-Encoding", "User-Agent"})
 
@@ -217,3 +221,20 @@ async def test_adapter_proxy_headers() -> None:
         }
     finally:
         await handler.close()
+
+
+@coroutine_test
+async def test_failed_request_releases_pool(mockserver: MockServer) -> None:
+    crawler = get_crawler(settings_dict={"CONCURRENT_CONNECTIONS_PER_HANDLER": 1})
+    handler = build_from_crawler(NiquestsDownloadHandler, crawler)
+    try:
+        # niquests holds the host pool per task, so the failure needs its own one
+        failed = asyncio.ensure_future(
+            handler.download_request(Request(f"http://localhost:{_free_port()}/"))
+        )
+        with pytest.raises(DownloadConnectionRefusedError):
+            await failed
+        response = await handler.download_request(Request(mockserver.url("/text")))
+    finally:
+        await handler.close()
+    assert response.body == b"Works"

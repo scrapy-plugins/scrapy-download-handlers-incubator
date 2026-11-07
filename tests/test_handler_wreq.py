@@ -15,6 +15,7 @@ from scrapy.utils.spider import DefaultSpider
 from scrapy.utils.test import get_crawler
 
 from scrapy_download_handlers_incubator import WreqDownloadHandler
+from tests.mockserver.raw_http import RawHttpServer
 from tests.test_handlers_base import (
     TestHttpBase,
     TestHttpProxyBase,
@@ -59,6 +60,7 @@ class WreqDownloadHandlerMixin:
 class TestHttp(WreqDownloadHandlerMixin, TestHttpBase):
     handler_bad_header_handling = "fail"
     handler_non_utf8_request_header_handling = "replace"
+    handler_response_header_name_case = "lower"
 
     @pytest.fixture
     def resolve_to_loopback(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -235,6 +237,23 @@ class TestEmulation:
         )
         assert headers.getlist("User-Agent") == [b"foo"]
         assert "Sec-Fetch-Mode" in headers
+
+    @pytest.mark.parametrize(
+        ("settings", "meta"),
+        [
+            ({"WREQ_EMULATION": "Chrome149"}, {}),
+            (None, {"wreq_emulation": "Chrome149"}),
+        ],
+    )
+    @coroutine_test
+    async def test_emulated_header_order(
+        self, settings: dict[str, Any] | None, meta: dict[str, Any]
+    ) -> None:
+        with RawHttpServer() as server:
+            request = Request(server.url, headers={"X-Custom": "a"}, meta=meta)
+            await self._download(request, settings)
+        names = [name.lower() for name in server.request_header_names()]
+        assert names.index(b"user-agent") < names.index(b"x-custom")
 
     @coroutine_test
     async def test_http2(self, mockserver: MockServer) -> None:

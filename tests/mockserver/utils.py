@@ -8,11 +8,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.x509 import load_pem_x509_certificate
 from OpenSSL import SSL
 from scrapy.core.downloader.tls import _TWISTED_VERSION_MAP
-
-try:
-    from scrapy.utils._ssl import _get_cert_options_version_kwargs
-except ImportError:  # Scrapy 2.19
-    from scrapy.utils.ssl import _get_cert_options_version_kwargs  # type: ignore[attr-defined,no-redef]
+from scrapy.utils._ssl import _get_cert_options_version_kwargs
 from twisted.internet.ssl import CertificateOptions, ContextFactory
 
 if TYPE_CHECKING:

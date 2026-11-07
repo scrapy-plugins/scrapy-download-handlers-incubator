@@ -30,8 +30,7 @@ given. The documentation, including limitations and unsupported features, is
 also provided as-is and may be incomplete.
 
 As this code intentionally uses private Scrapy APIs, it specifies a tight
-dependency on Scrapy. This version of the package only supports Scrapy 2.19.x
-and 2.20.x.
+dependency on Scrapy. This version of the package only supports Scrapy 2.20.x.
 
 .. _Scrapy: https://scrapy.org/
 .. _Scrapy download handler: https://docs.scrapy.org/en/latest/topics/download-handlers.html
@@ -118,6 +117,7 @@ TLS verbose logging            Yes
 ``response.ip_address``        Yes
 ``response.certificate``       Yes (DER bytes)
 Per-request ``bindaddress``    No (not supported by the library)
+HTTP/1.1 header name case      As written
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 TLS implementation             Standard library ``ssl``
 ============================== ========================================
@@ -162,9 +162,16 @@ TLS verbose logging            No (not supported by the library)
 ``response.ip_address``        Yes
 ``response.certificate``       No (not supported by the library)
 Per-request ``bindaddress``    No (not supported by the library)
+HTTP/1.1 header name case      As written
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 TLS implementation             ``libcurl``
 ============================== ========================================
+
+Other limitations:
+
+* ``CONCURRENT_CONNECTIONS_PER_HANDLER`` applies separately to each curl_cffi
+  session, and the handler uses separate sessions for different
+  ``proxy_headers`` values and for requests impersonating a browser by name.
 
 Notable features supported by the library but not implemented:
 
@@ -245,6 +252,7 @@ TLS verbose logging            Yes
 ``response.ip_address``        Yes
 ``response.certificate``       Yes (DER bytes)
 Per-request ``bindaddress``    No (not supported by the library)
+HTTP/1.1 header name case      As written
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 TLS implementation             Standard library ``ssl``
 ============================== ========================================
@@ -300,9 +308,15 @@ TLS verbose logging            Yes
 ``response.ip_address``        Yes
 ``response.certificate``       Yes (DER bytes)
 Per-request ``bindaddress``    No (not supported by the library)
+HTTP/1.1 header name case      Capitalized in requests, as written in responses
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 TLS implementation             Standard library ``ssl``
 ============================== ==================================================
+
+Other limitations:
+
+* ``CONNECTION_KEEPALIVE_TIMEOUT`` is only supported with the value of ``0``,
+  and idle connections are closed only when the pool tries to reuse them.
 
 Notable features supported by the library but not implemented:
 
@@ -348,8 +362,15 @@ TLS verbose logging         No (not supported by the library)
 ``response.ip_address``     No (not supported by the library)
 ``response.certificate``    No (not supported by the library)
 Per-request ``bindaddress`` No (not supported by the library)
+HTTP/1.1 header name case   Capitalized in requests,
+                            lowercase in responses
 TLS implementation          Rust ``rustls``
 =========================== =================================
+
+Other limitations:
+
+* ``CONCURRENT_CONNECTIONS_PER_HANDLER`` only limits the connections in use,
+  idle connections kept for reuse are not closed to stay within it.
 
 Notable features supported by the library but not implemented:
 
@@ -397,6 +418,8 @@ TLS verbose logging            No (not supported by the library)
 ``response.ip_address``        Yes
 ``response.certificate``       Yes (DER bytes)
 Per-request ``bindaddress``    Yes
+HTTP/1.1 header name case      As written in requests (unless
+                               emulating), lowercase in responses
 Proxy certificate verification Follows ``DOWNLOAD_VERIFY_CERTIFICATES``
 TLS implementation             BoringSSL
 ============================== ========================================

@@ -16,23 +16,13 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
-from scrapy.utils._download_handlers import NullCookieJar
+from scrapy.utils._download_handlers import NullCookieJar, get_proxy_headers
+from scrapy.utils._ssl import (
+    _log_sslobj_debug_info,
+    _make_insecure_ssl_ctx,
+    _make_ssl_context,
+)
 from scrapy.utils.python import _iter_exc_causes
-
-try:
-    from scrapy.utils._ssl import (
-        _log_sslobj_debug_info,
-        _make_insecure_ssl_ctx,
-        _make_ssl_context,
-    )
-except ImportError:  # Scrapy 2.19
-    from scrapy.utils.ssl import (  # type: ignore[attr-defined,no-redef]
-        _log_sslobj_debug_info,
-        _make_insecure_ssl_ctx,
-        _make_ssl_context,
-    )
-
-from scrapy_download_handlers_incubator.utils import get_proxy_headers
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
@@ -103,10 +93,15 @@ class HttpxDownloadHandler(_Base):
         self._bind_host: str | None = self._get_bind_address_host()
         self._limits: httpx.Limits = httpx.Limits(
             # hard limit on simultaneous connections (None for no limit, which
-            # is what a CONCURRENT_REQUESTS of 0 means)
+            # is what a CONCURRENT_CONNECTIONS_PER_HANDLER of 0 means)
             max_connections=self._pool_size_total or None,
-            # total number of idle connections in the pool (extra ones are closed)
-            max_keepalive_connections=self._pool_size_total or None,
+            # total number of idle connections in the pool (extra ones are
+            # closed); keeping none of them is how keepalive gets disabled,
+            # since expiry alone is subject to the resolution of the clock
+            max_keepalive_connections=(
+                (self._pool_size_total or None) if self._keepalive_timeout else 0
+            ),
+            keepalive_expiry=self._keepalive_timeout,
         )
 
         self._default_client: httpx.AsyncClient = self._make_client()

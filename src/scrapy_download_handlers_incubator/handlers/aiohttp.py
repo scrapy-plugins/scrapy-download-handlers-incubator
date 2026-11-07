@@ -18,13 +18,8 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
-
-try:
-    from scrapy.utils._ssl import _log_sslobj_debug_info, _make_ssl_context
-except ImportError:  # Scrapy 2.19
-    from scrapy.utils.ssl import _log_sslobj_debug_info, _make_ssl_context  # type: ignore[attr-defined,no-redef]
-
-from scrapy_download_handlers_incubator.utils import get_proxy_headers
+from scrapy.utils._download_handlers import get_proxy_headers
+from scrapy.utils._ssl import _log_sslobj_debug_info, _make_ssl_context
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 
@@ -118,6 +113,8 @@ class AiohttpDownloadHandler(BaseStreamingDownloadHandler[_ClientResponse]):
             limit=self._pool_size_total,
             # hard limit on simultaneous connections per host
             limit_per_host=self._pool_size_per_host,
+            keepalive_timeout=self._keepalive_timeout or None,
+            force_close=not self._keepalive_timeout,
         )
         self._session: aiohttp.ClientSession = aiohttp.ClientSession(
             connector=connector,
