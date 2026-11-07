@@ -3,10 +3,7 @@ from __future__ import annotations
 import contextlib
 import os
 import socket
-from importlib.metadata import version
 from pathlib import Path
-
-from packaging.version import Version
 
 try:
     socket.getaddrinfo("non-existing-host", 80)
@@ -18,13 +15,6 @@ except socket.gaierror:
 # Hostnames rejected by the idna package but resolvable in practice: the
 # punycode form of an emoji domain (i❤.ws) and a domain with an underscore.
 IDNA_REJECTED_HOSTNAMES = ["xn--i-7iq.ws", "foo_bar.example"]
-
-# safe_url_string() drops the brackets of an IPv6 address literal in the
-# netloc, https://github.com/scrapy/w3lib/pull/253
-# (scrapy.utils._deps_compat.W3LIB_STRIPS_IPV6_BRACKETS in Scrapy 2.20+)
-W3LIB_STRIPS_IPV6_BRACKETS = (
-    Version("2.0.0") <= Version(version("w3lib")) < Version("2.4.1")
-)
 
 
 def get_script_run_env() -> dict[str, str]:

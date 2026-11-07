@@ -14,11 +14,7 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
-
-try:
-    from scrapy.utils._ssl import _get_tls_version_limits
-except ImportError:  # Scrapy 2.19
-    from scrapy.utils.ssl import _get_tls_version_limits  # type: ignore[attr-defined,no-redef]
+from scrapy.utils._ssl import _get_tls_version_limits
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 

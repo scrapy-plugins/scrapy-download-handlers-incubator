@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING
 
 import pytest
@@ -66,14 +65,7 @@ def proxy_server(
 
 def pytest_configure(config: pytest.Config) -> None:
     # Needed on Windows to switch from proactor to selector for Twisted reactor compatibility.
-    with warnings.catch_warnings():
-        # likely only needed on Scrapy < 2.20
-        warnings.filterwarnings(
-            "ignore",
-            message=r"'asyncio\.(get_event_loop_policy|set_event_loop_policy|WindowsSelectorEventLoopPolicy)' is deprecated",
-            category=DeprecationWarning,
-        )
-        set_asyncio_event_loop_policy()
+    set_asyncio_event_loop_policy()
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:

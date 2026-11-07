@@ -17,22 +17,13 @@ from scrapy.exceptions import (
     UnsupportedURLSchemeError,
 )
 from scrapy.http import Headers
+from scrapy.utils._download_handlers import get_proxy_headers
+from scrapy.utils._ssl import (
+    _STDLIB_VERSION_MAP,
+    _get_tls_version_limits,
+    _make_insecure_ssl_ctx,
+)
 from scrapy.utils.python import _iter_exc_causes
-
-try:
-    from scrapy.utils._ssl import (
-        _STDLIB_VERSION_MAP,
-        _get_tls_version_limits,
-        _make_insecure_ssl_ctx,
-    )
-except ImportError:  # Scrapy 2.19
-    from scrapy.utils.ssl import (  # type: ignore[attr-defined,no-redef]
-        _STDLIB_VERSION_MAP,
-        _get_tls_version_limits,
-        _make_insecure_ssl_ctx,
-    )
-
-from scrapy_download_handlers_incubator.utils import get_proxy_headers
 
 from ._base_streaming import BaseStreamingDownloadHandler, _BaseResponseArgs
 

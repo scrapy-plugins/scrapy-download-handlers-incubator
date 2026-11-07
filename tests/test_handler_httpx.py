@@ -5,8 +5,6 @@ from importlib.util import find_spec
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
-import scrapy
-from packaging.version import Version
 from scrapy import Request
 from scrapy.utils.misc import build_from_crawler
 from scrapy.utils.test import get_crawler
@@ -230,7 +228,6 @@ async def test_proxy_headers_ignored_for_socks(
 async def test_pool_limits(limit: int, expected: int | None) -> None:
     crawler = get_crawler(
         settings_dict={
-            "CONCURRENT_REQUESTS": limit,  # Scrapy 2.19
             "CONCURRENT_CONNECTIONS_PER_HANDLER": limit,
         }
     )
@@ -242,10 +239,6 @@ async def test_pool_limits(limit: int, expected: int | None) -> None:
         await handler.close()
 
 
-@pytest.mark.skipif(
-    Version(scrapy.__version__) < Version("2.20"),
-    reason="CONNECTION_KEEPALIVE_TIMEOUT requires Scrapy 2.20+",
-)
 @coroutine_test
 async def test_keepalive_timeout() -> None:
     crawler = get_crawler(settings_dict={"CONNECTION_KEEPALIVE_TIMEOUT": 5})

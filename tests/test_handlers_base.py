@@ -17,9 +17,7 @@ from urllib.parse import urlparse
 
 import aiodns
 import pytest
-import scrapy
 from cryptography.x509 import load_der_x509_certificate
-from packaging.version import Version
 from scrapy.exceptions import (
     CannotResolveHostError,
     DownloadCancelledError,
@@ -57,7 +55,6 @@ from tests.spiders import (
 from tests.utils import (
     IDNA_REJECTED_HOSTNAMES,
     NON_EXISTING_RESOLVABLE,
-    W3LIB_STRIPS_IPV6_BRACKETS,
     ipv6_loopback_available,
 )
 from tests.utils.decorators import coroutine_test
@@ -163,9 +160,6 @@ class TestHttpBase(ABC):
 
     @pytest.mark.skipif(
         not ipv6_loopback_available(), reason="IPv6 loopback is not available"
-    )
-    @pytest.mark.skipif(
-        W3LIB_STRIPS_IPV6_BRACKETS, reason="https://github.com/scrapy/w3lib/pull/253"
     )
     @coroutine_test
     async def test_download_ipv6_literal(self, mockserver_ipv6: MockServer) -> None:
@@ -530,10 +524,6 @@ class TestHttpBase(ABC):
             with pytest.raises(DownloadTimeoutError):
                 await maybe_deferred_to_future(d)
 
-    @pytest.mark.skipif(
-        Version(scrapy.__version__) < Version("2.20"),
-        reason="Partial responses on timeout require Scrapy 2.20+",
-    )
     @coroutine_test
     async def test_timeout_download_from_spider_server_hangs_partial_response(
         self, mockserver: MockServer
@@ -1754,7 +1744,7 @@ class TestHttpProxyBase(ABC):
             response = await download_handler.download_request(request)
         assert response.status == 200
         assert response.url == request.url
-        assert response.body.rstrip(b"/") + b"/" == b"http://example.com/"  # temporary
+        assert response.body == b"http://example.com/"
 
     @coroutine_test
     async def test_download_without_proxy(
@@ -1796,7 +1786,7 @@ class TestHttpProxyBase(ABC):
         async with self.get_dh() as download_handler:
             response = await download_handler.download_request(request)
         assert response.status == 200
-        assert response.body.rstrip(b"/") + b"/" == b"http://example.com/"  # temporary
+        assert response.body == b"http://example.com/"
 
     @coroutine_test
     async def test_download_with_proxy_https_timeout(
@@ -1844,7 +1834,7 @@ class TestHttpProxyBase(ABC):
             response = await download_handler.download_request(request)
         assert response.status == 200
         assert response.url == request.url
-        assert response.body.rstrip(b"/") + b"/" == b"http://example.com/"  # temporary
+        assert response.body == b"http://example.com/"
 
 
 PROXY_KINDS = ["http", "https", "socks5"]
@@ -2020,9 +2010,6 @@ class TestMitmProxyBase(ABC):
 
     @pytest.mark.skipif(
         not ipv6_loopback_available(), reason="IPv6 loopback is not available"
-    )
-    @pytest.mark.skipif(
-        W3LIB_STRIPS_IPV6_BRACKETS, reason="https://github.com/scrapy/w3lib/pull/253"
     )
     @pytest.mark.parametrize("proxy_server", PROXY_KINDS, indirect=True)
     @pytest.mark.parametrize(
