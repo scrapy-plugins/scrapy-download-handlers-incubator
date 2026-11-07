@@ -237,15 +237,12 @@ class NiquestsDownloadHandler(_Base):
         ) as e:
             raise DownloadFailedError(str(e)) from e
         finally:
-            await self._wake_pool_waiters(session, request.url, proxy)
+            await self._release_pools(session, request.url, proxy)
 
     @staticmethod
-    async def _wake_pool_waiters(
+    async def _release_pools(
         session: niquests.AsyncSession, url: str, proxy: str | None
     ) -> None:
-        # When all host pools are taken, urllib3-future makes requests to new
-        # hosts wait for an idle pool to replace, but only wakes them up when
-        # a pool that is already idle is released, so we release one.
         try:
             adapter = cast(
                 "niquests.adapters.AsyncHTTPAdapter", session.get_adapter(url)
@@ -256,7 +253,16 @@ class NiquestsDownloadHandler(_Base):
         if manager is None:
             return
         pools = manager.pools
-        if pools.busy or pools.maxsize is None or pools.rsize() < pools.maxsize:
+        # niquests doesn't release the host pool when a request fails, and the
+        # pool stays held until the same task makes another request
+        # (https://github.com/jawah/niquests/issues/488)
+        if pools.busy:
+            pools.release()
+        # When all host pools are taken, urllib3-future makes requests to new
+        # hosts wait for an idle pool to replace, but only wakes them up when
+        # a pool that is already idle is released, so we release one
+        # (https://github.com/jawah/urllib3.future/issues/447).
+        if pools.maxsize is None or pools.rsize() < pools.maxsize:
             return
         async with aclosing(pools.iter_idle()) as idle_pools:
             async for _ in idle_pools:
