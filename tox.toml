@@ -4,8 +4,8 @@ requires = [
 ]
 env_list = [
     { product = [["py"], ["aiohttp", "curlcffi", "httpx", "niquests", "pyreqwest", "wreq", "all", "pinned"], ["", "noreactor"]] },
+    "mypy",
     "pre-commit",
-    "typing",
     "twinecheck",
 ]
 
